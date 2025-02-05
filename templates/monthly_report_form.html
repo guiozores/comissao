@@ -1,0 +1,28 @@
+<!-- templates/monthly_report_form.html -->
+{% extends "base.html" %}
+{% block content %}
+<h2>Gerar Relatório Mensal</h2>
+<form method="POST">
+  <label>Mês/Ano do Relatório:
+    <input type="month" name="report_month" required>
+  </label>
+
+  <h3>Selecione Comissões</h3>
+  {% for c in commissions %}
+    <div>
+      <input type="checkbox" name="commission_ids" value="{{ c.id }}" id="comm_{{ c.id }}">
+      <label for="comm_{{ c.id }}">#{{ c.id }} - {{ c.name }} ({{ c.month }}/{{ c.year }}, R$ {{ c.original_value }})</label>
+    </div>
+  {% endfor %}
+
+  <h3>Selecione Despesas</h3>
+  {% for e in expenses %}
+    <div>
+      <input type="checkbox" name="expense_ids" value="{{ e.id }}" id="exp_{{ e.id }}">
+      <label for="exp_{{ e.id }}">#{{ e.id }} - {{ e.name }} (R$ {{ e.value }}, M:{{ e.month }}/{{ e.year }})</label>
+    </div>
+  {% endfor %}
+
+  <button type="submit">Gerar Relatório</button>
+</form>
+{% endblock %}

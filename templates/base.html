@@ -1,0 +1,32 @@
+<!-- templates/base.html -->
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <title>Meu Projeto Flask</title>
+  <style>
+    /* Exemplo rápido; ou coloque em static/css se preferir */
+    .flash-msg { color: green; margin: 10px 0; }
+    .flash-error { color: red; margin: 10px 0; }
+  </style>
+</head>
+<body>
+  <h1>Meu Projeto - Flask</h1>
+  <hr>
+
+  <!-- Mensagens de flash -->
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <ul>
+      {% for category, msg in messages %}
+        <li style="color: {% if category == 'success' %}green{% else %}red{% endif %};">
+          {{ msg }}
+        </li>
+      {% endfor %}
+      </ul>
+    {% endif %}
+  {% endwith %}
+
+  {% block content %}{% endblock %}
+</body>
+</html>

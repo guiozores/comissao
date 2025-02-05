@@ -1,0 +1,156 @@
+<!-- templates/dashboard.html -->
+{% extends "base.html" %}
+{% block content %}
+
+<h2>Dashboard</h2>
+<p>Aqui você gerencia Comissões e Despesas em uma só página.</p>
+
+<hr>
+<h3>Comissões</h3>
+<!-- Form para criar nova comissão -->
+<form action="{{ url_for('commission_new') }}" method="POST">
+  <label>Nome/Descrição:
+    <input type="text" name="name" required>
+  </label>
+  <label>Mês/Ano:
+    <!-- HTML input type="month" gera formato "YYYY-MM" -->
+    <input type="month" name="month_year" required>
+  </label>
+  <label>Valor Original:
+    <input type="text" name="original_value" placeholder="ex: 1000,50" required>
+  </label>
+  <label>Fator:
+    <input type="text" name="factor" placeholder="ex: 0,10">
+  </label>
+  <label>Status:
+    <select name="status" required>
+      <option value="paga">Paga</option>
+      <option value="aguardando">Aguardando</option>
+      <option value="em execução">Em Execução</option>
+    </select>
+  </label>
+  <button type="submit">Adicionar Comissão</button>
+</form>
+
+<table border="1" cellpadding="5" cellspacing="0">
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>Nome</th>
+      <th>Mês/Ano</th>
+      <th>Valor Original</th>
+      <th>Fator</th>
+      <th>Valor Computado</th>
+      <th>Status</th>
+      <th>Ações</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for c in commissions %}
+    <tr>
+      <td>{{ c.id }}</td>
+      <td>{{ c.name }}</td>
+      <td>{{ c.month }}/{{ c.year }}</td>
+      <td>{{ c.original_value }}</td>
+      <td>{{ c.factor }}</td>
+      <td>{{ c.computed_value }}</td>
+      <td>{{ c.status }}</td>
+      <td>
+        <!-- Edição inline -->
+        <form action="{{ url_for('commission_edit', commission_id=c.id) }}" method="POST" style="display:inline;">
+          <!-- Nome: -->
+          <input type="text" name="name" value="{{ c.name }}">
+          <!-- Mês/Ano como input type=month -->
+          <input type="month" name="month_year"
+                 value="{{ c.year }}-{% if c.month < 10 %}0{{ c.month }}{% else %}{{ c.month }}{% endif %}">
+          <!-- Valor Original (usar vírgula/ponto) -->
+          <input type="text" name="original_value" value="{{ c.original_value }}">
+          <!-- Fator -->
+          <input type="text" name="factor" value="{{ c.factor if c.factor else '' }}">
+          <!-- Status -->
+          <select name="status">
+            <option value="paga" {% if c.status=='paga' %}selected{% endif %}>Paga</option>
+            <option value="aguardando" {% if c.status=='aguardando' %}selected{% endif %}>Aguardando</option>
+            <option value="em execução" {% if c.status=='em execução' %}selected{% endif %}>Em Execução</option>
+          </select>
+          <button type="submit">Salvar</button>
+        </form>
+        |
+        <form action="{{ url_for('commission_delete', commission_id=c.id) }}" method="POST" style="display:inline;">
+          <button type="submit" onclick="return confirm('Deseja deletar?');">Del</button>
+        </form>
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+
+<hr>
+<h3>Despesas</h3>
+<!-- Form para criar nova despesa -->
+<form action="{{ url_for('expense_new') }}" method="POST">
+  <label>Nome:
+    <input type="text" name="name" required>
+  </label>
+  <label>Valor:
+    <input type="text" name="value" placeholder="ex: 500,00" required>
+  </label>
+  <label>Mês:
+    <input type="number" name="month" min="1" max="12" required>
+  </label>
+  <label>Ano:
+    <input type="number" name="year" placeholder="2023" required>
+  </label>
+  <label>
+    <input type="checkbox" name="is_recurring"> Recorrente
+  </label>
+  <button type="submit">Adicionar Despesa</button>
+</form>
+
+<table border="1" cellpadding="5" cellspacing="0">
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>Nome</th>
+      <th>Valor</th>
+      <th>Mês</th>
+      <th>Ano</th>
+      <th>Recorrente?</th>
+      <th>Ações</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for e in expenses %}
+    <tr>
+      <td>{{ e.id }}</td>
+      <td>{{ e.name }}</td>
+      <td>{{ e.value }}</td>
+      <td>{{ e.month }}</td>
+      <td>{{ e.year }}</td>
+      <td>{{ 'Sim' if e.is_recurring else 'Não' }}</td>
+      <td>
+        <!-- Edição inline -->
+        <form action="{{ url_for('expense_edit', expense_id=e.id) }}" method="POST" style="display:inline;">
+          <input type="text" name="name" value="{{ e.name }}" required>
+          <input type="text" name="value" value="{{ e.value }}">
+          <input type="number" name="month" value="{{ e.month }}" min="1" max="12">
+          <input type="number" name="year" value="{{ e.year }}">
+          <label><input type="checkbox" name="is_recurring" {% if e.is_recurring %}checked{% endif %}> Rec</label>
+          <button type="submit">Salvar</button>
+        </form>
+        |
+        <form action="{{ url_for('expense_delete', expense_id=e.id) }}" method="POST" style="display:inline;">
+          <button type="submit" onclick="return confirm('Deletar despesa?');">Del</button>
+        </form>
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+<hr>
+<!-- Link para geração de relatório mensal -->
+<a href="{{ url_for('monthly_report') }}">Gerar Relatório Mensal</a>
+
+{% endblock %}
