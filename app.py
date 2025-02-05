@@ -2,6 +2,7 @@
 from flask import Flask, render_template, request, redirect, url_for, flash
 from datetime import datetime
 import json
+import re
 from sqlalchemy import text
 
 from config import Config
@@ -11,7 +12,7 @@ app = Flask(__name__)
 app.config.from_object(Config)
 db.init_app(app)
 
-# Filtro para formatar valores monetários (exceto o campo "fator")
+# Filtro para formatação monetária (exceto para "fator")
 def format_currency(value):
     try:
         formatted = f"{value:,.2f}"
@@ -23,13 +24,44 @@ def format_currency(value):
 
 app.jinja_env.filters["currency"] = format_currency
 
+# -------------------------------------------------
+# Função para processar despesas extras (para relatório)
+# -------------------------------------------------
+def parse_extra_expenses(text):
+    """
+    Processa o texto de despesas extras.
+    Cada linha deve estar no formato: DESCRIÇÃO;VALOR
+    Se não houver ';', tenta extrair o último valor encontrado via regex.
+    Retorna uma lista de dicionários com 'name' e 'value'.
+    """
+    expenses = []
+    lines = [line.strip() for line in text.strip().splitlines() if line.strip()]
+    value_pattern = re.compile(r'(\d{1,3}(?:\.\d{3})*,\d{2})')
+    for line in lines:
+        if ";" in line:
+            parts = line.split(";")
+            description = parts[0].strip()
+            value_str = parts[1].strip()
+        else:
+            matches = value_pattern.findall(line)
+            if matches:
+                value_str = matches[-1]
+                description = value_pattern.sub("", line).strip()
+            else:
+                continue
+        try:
+            value = float(value_str.replace(".", "").replace(",", "."))
+        except Exception:
+            value = 0.0
+        expenses.append({"name": description, "value": value})
+    return expenses
+
 # =====================================================
 # Rota para recriar o banco (DESENVOLVIMENTO)
 # =====================================================
 @app.route("/create_db")
 def create_db():
     with app.app_context():
-        # Desabilitar verificações de FK (MySQL)
         with db.engine.begin() as conn:
             conn.execute(text("SET FOREIGN_KEY_CHECKS = 0;"))
         db.drop_all()
@@ -46,22 +78,65 @@ def index():
     return redirect(url_for("dashboard"))
 
 # =====================================================
-# DASHBOARD: Gerenciamento de Comissões e Despesas
+# DASHBOARD: Listagem com Filtro e Paginação
 # =====================================================
 @app.route("/dashboard", methods=["GET"])
 def dashboard():
-    # Exibe todas as comissões e despesas (mesmo as reportadas, para consulta)
-    commissions = Commission.query.all()
-    expenses = Expense.query.all()
-    return render_template("dashboard.html", commissions=commissions, expenses=expenses)
+    # Obter parâmetros de filtro via query string
+    # filter_mode: "month" ou "year" ou vazio (sem filtro)
+    filter_mode = request.args.get("filter_mode")
+    # Se for "month", o valor vem do parâmetro "filter_month_year" no formato "YYYY-MM"
+    filter_month_year = request.args.get("filter_month_year")
+    # Se for "year", o valor vem do parâmetro "filter_year"
+    filter_year = request.args.get("filter_year")
+    page_comm = request.args.get("page_comm", 1, type=int)
+    page_exp = request.args.get("page_exp", 1, type=int)
+    
+    # Define itens por página: 8 se houver filtro, 5 caso contrário
+    per_page = 8 if filter_mode in ["month", "year"] else 5
+
+    # Query para Comissões
+    commissions_query = Commission.query
+    if filter_mode == "month" and filter_month_year:
+        # O valor é "YYYY-MM": extrair ano e mês
+        parts = filter_month_year.split("-")
+        if len(parts) == 2:
+            y = int(parts[0])
+            m = int(parts[1])
+            commissions_query = commissions_query.filter(Commission.year == y, Commission.month == m)
+    elif filter_mode == "year" and filter_year:
+        commissions_query = commissions_query.filter(Commission.year == int(filter_year))
+    commissions_query = commissions_query.order_by(Commission.id.desc())
+    comm_pagination = commissions_query.paginate(page=page_comm, per_page=per_page, error_out=False)
+
+    # Query para Despesas
+    expenses_query = Expense.query
+    if filter_mode == "month" and filter_month_year:
+        parts = filter_month_year.split("-")
+        if len(parts) == 2:
+            y = int(parts[0])
+            m = int(parts[1])
+            expenses_query = expenses_query.filter(Expense.year == y, Expense.month == m)
+    elif filter_mode == "year" and filter_year:
+        expenses_query = expenses_query.filter(Expense.year == int(filter_year))
+    expenses_query = expenses_query.order_by(Expense.id.desc())
+    exp_pagination = expenses_query.paginate(page=page_exp, per_page=per_page, error_out=False)
+
+    return render_template("dashboard.html", 
+                           commissions=comm_pagination.items, 
+                           expenses=exp_pagination.items,
+                           comm_pagination=comm_pagination,
+                           exp_pagination=exp_pagination,
+                           filter_mode=filter_mode,
+                           filter_month_year=filter_month_year,
+                           filter_year=filter_year)
 
 # -------------------------------
-# CRUD de Comissões
+# CRUD de Comissões (Dashboard)
 # -------------------------------
 @app.route("/dashboard/commission/new", methods=["POST"])
 def commission_new():
-    # O usuário insere a data no formato "MM/YYYY" ou "YYYY-MM"
-    month_year = request.form.get("month_year")
+    month_year = request.form.get("month_year")  # Espera "MM/YYYY" ou "YYYY-MM"
     name = request.form.get("name")
     original_value_str = request.form.get("original_value")
     factor_str = request.form.get("factor")
@@ -89,7 +164,6 @@ def commission_new():
     )
     db.session.add(new_commission)
     db.session.commit()
-
     flash("Comissão criada com sucesso!", "success")
     return redirect(url_for("dashboard"))
 
@@ -131,7 +205,7 @@ def commission_delete(commission_id):
     return redirect(url_for("dashboard"))
 
 # -------------------------------
-# CRUD de Despesas
+# CRUD de Despesas (Dashboard)
 # -------------------------------
 @app.route("/dashboard/expense/new", methods=["POST"])
 def expense_new():
@@ -148,7 +222,7 @@ def expense_new():
     value_str = request.form.get("value")
     value = float(value_str.replace(",", ".")) if value_str else 0.0
     is_recurring = True if request.form.get("is_recurring") == "on" else False
-    installment_info = request.form.get("installment_info")  # opcional
+    installment_info = request.form.get("installment_info")
 
     new_expense = Expense(
         name=name,
@@ -201,12 +275,12 @@ def expense_delete(expense_id):
     return redirect(url_for("dashboard"))
 
 # =====================================================
-# RELATÓRIO MENSAL
+# RELATÓRIO MENSAL: Geração e Processamento
 # =====================================================
 @app.route("/monthly_report", methods=["GET", "POST"])
 def monthly_report():
     if request.method == "POST":
-        # O usuário informa a data do relatório no formato "MM/YYYY"
+        # O usuário informa a data do relatório no formato "MM/YYYY" (input type="month" retorna "YYYY-MM")
         report_month_str = request.form.get("report_month")
         if "-" in report_month_str:
             parts = report_month_str.split("-")
@@ -216,21 +290,40 @@ def monthly_report():
             parts = report_month_str.split("/")
             report_month = int(parts[0])
             report_year = int(parts[1])
-
-        # Para comissões: não filtrar pelo lançamento; o usuário seleciona dentre todas as comissões disponíveis (reported == False)
+        
+        # As comissões são selecionadas via checkbox (podem ter sido lançadas em qualquer período, desde que ainda não reportadas)
         selected_commission_ids = request.form.getlist("commission_ids", type=int)
         commissions = Commission.query.filter(Commission.id.in_(selected_commission_ids)).all()
-
-        # Para despesas: buscar as que NÃO são recorrentes com o mesmo mês/ano e todas as recorrentes
+        
+        # Para despesas:
+        # - Despesas NÃO recorrentes do período (selecionadas via checkbox)
         normal_expenses = Expense.query.filter_by(month=report_month, year=report_year, is_recurring=False).all()
+        # - Todas as despesas recorrentes (independentemente do período)
         recurring_expenses = Expense.query.filter_by(is_recurring=True).all()
         final_expenses = normal_expenses + recurring_expenses
 
+        # Processa as despesas extras inseridas no textarea
+        extra_expenses_text = request.form.get("extra_expenses")
+        if extra_expenses_text:
+            parsed_extras = parse_extra_expenses(extra_expenses_text)
+            for exp in parsed_extras:
+                new_exp = Expense(
+                    name=exp["name"],
+                    value=exp["value"],
+                    month=report_month,
+                    year=report_year,
+                    is_recurring=False,
+                    installment_info=""
+                )
+                db.session.add(new_exp)
+                db.session.flush()
+                final_expenses.append(new_exp)
+            db.session.commit()
+
         total_comm = sum(c.computed_value for c in commissions)
         total_exp = sum(e.value for e in final_expenses)
-        grand_total = total_comm + total_exp  # soma: comissões + despesas
+        grand_total = total_comm + total_exp
 
-        # Monta snapshots completos em JSON
         commissions_data = json.dumps([
             {
                 "id": c.id,
@@ -268,22 +361,24 @@ def monthly_report():
         db.session.add(report)
         db.session.commit()
 
-        # Marcar as comissões utilizadas como reportadas (para que não sejam reutilizadas)
+        # Marcar as comissões utilizadas como reportadas
         for c in commissions:
             c.reported = True
         db.session.commit()
 
         flash("Relatório gerado com sucesso!", "success")
-        # Redireciona para a página de visualização do relatório
         return redirect(url_for("monthly_report_view", report_id=report.id))
-
-    # GET: Exibe o formulário para escolher a data do relatório e selecionar as comissões disponíveis
+    
+    # GET: Exibe o formulário para gerar o relatório
     available_commissions = Commission.query.filter_by(reported=False).all()
     available_expenses = Expense.query.filter_by(is_recurring=False).all()
     return render_template("monthly_report_form.html", 
                            available_commissions=available_commissions, 
                            available_expenses=available_expenses)
 
+# =====================================================
+# VISUALIZAÇÃO DO RELATÓRIO MENSAL
+# =====================================================
 @app.route("/monthly_report/view/<int:report_id>")
 def monthly_report_view(report_id):
     report = MonthlyReport.query.get_or_404(report_id)
@@ -294,10 +389,12 @@ def monthly_report_view(report_id):
                            commissions_data=commissions_data,
                            expenses_data=expenses_data)
 
+# =====================================================
+# DELEÇÃO DO RELATÓRIO MENSAL (Libera as comissões)
+# =====================================================
 @app.route("/monthly_report/delete/<int:report_id>", methods=["POST"])
 def monthly_report_delete(report_id):
     report = MonthlyReport.query.get_or_404(report_id)
-    # Antes de deletar o relatório, desmarcar as comissões que estavam nele
     if report.commissions_data:
         snapshot = json.loads(report.commissions_data)
         for item in snapshot:
@@ -309,6 +406,9 @@ def monthly_report_delete(report_id):
     flash("Relatório mensal deletado!", "success")
     return redirect(url_for("monthly_reports_list"))
 
+# =====================================================
+# LISTAGEM DE TODOS OS RELATÓRIOS
+# =====================================================
 @app.route("/monthly_reports", methods=["GET"])
 def monthly_reports_list():
     reports = MonthlyReport.query.order_by(MonthlyReport.generated_date.desc()).all()

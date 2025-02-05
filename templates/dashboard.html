@@ -5,16 +5,50 @@
   <h2>Dashboard</h2>
   <p>Gerencie Comissões e Despesas.</p>
   
+  <!-- Filtro: escolha entre "Sem Filtro", "Por Mês/Ano" ou "Por Ano" -->
+  <form method="GET" action="{{ url_for('dashboard') }}" class="row g-3 mb-4">
+    <div class="col-md-3">
+      <label class="form-label">Tipo de Filtro:</label>
+      <select name="filter_mode" id="filter_mode" class="form-select">
+        <option value="">-- Sem Filtro --</option>
+        <option value="month" {% if filter_mode=='month' %}selected{% endif %}>Por Mês/Ano</option>
+        <option value="year" {% if filter_mode=='year' %}selected{% endif %}>Por Ano</option>
+      </select>
+    </div>
+    <!-- Campo para filtro por Mês/Ano (nativo) -->
+    <div class="col-md-3" id="month_year_div" style="display: {% if filter_mode=='month' %}block{% else %}none{% endif %};">
+      <label class="form-label">Mês/Ano:</label>
+      <input type="month" name="filter_month_year" class="form-control" value="{{ filter_month_year or '' }}">
+    </div>
+    <!-- Campo para filtro por Ano -->
+    <div class="col-md-3" id="year_div" style="display: {% if filter_mode=='year' %}block{% else %}none{% endif %};">
+      <label class="form-label">Ano:</label>
+      <input type="number" name="filter_year" class="form-control" placeholder="AAAA" min="1900" max="2100" value="{{ filter_year or '' }}">
+    </div>
+    <div class="col-md-3 align-self-end">
+      <button type="submit" class="btn btn-primary">Filtrar</button>
+      <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">Limpar</a>
+    </div>
+  </form>
+  
+  <script>
+    // Script simples para mostrar/ocultar os campos conforme o filtro selecionado
+    document.getElementById('filter_mode').addEventListener('change', function() {
+      var mode = this.value;
+      document.getElementById('month_year_div').style.display = (mode === 'month') ? 'block' : 'none';
+      document.getElementById('year_div').style.display = (mode === 'year') ? 'block' : 'none';
+    });
+  </script>
+  
   <!-- Botões para Relatórios -->
   <div class="mb-4">
     <a href="{{ url_for('monthly_report') }}" class="btn btn-primary me-2">Gerar Relatório Mensal</a>
     <a href="{{ url_for('monthly_reports_list') }}" class="btn btn-secondary">Listar Relatórios Mensais</a>
   </div>
   
-  <!-- Comissões -->
+  <!-- Formulário para nova Comissão -->
   <hr>
-  <h3>Comissões</h3>
-  <!-- Formulário para criar nova comissão -->
+  <h3>Nova Comissão</h3>
   <form action="{{ url_for('commission_new') }}" method="POST" class="mb-3">
     <div class="row g-3">
       <div class="col-md-3">
@@ -23,8 +57,7 @@
       </div>
       <div class="col-md-3">
         <label class="form-label">Mês/Ano:</label>
-        <!-- Usando input type="text" com máscara (MM/YYYY) -->
-        <input type="text" name="month_year" class="form-control" placeholder="MM/YYYY" pattern="(0[1-9]|1[0-2])\/\d{4}" required>
+        <input type="month" name="month_year" class="form-control" required>
       </div>
       <div class="col-md-2">
         <label class="form-label">Valor:</label>
@@ -49,7 +82,7 @@
   </form>
   
   <!-- Tabela de Comissões -->
-  <div class="table-responsive mb-4">
+  <div class="table-responsive mb-3">
     <table class="table table-bordered table-striped">
       <thead>
         <tr>
@@ -70,15 +103,13 @@
           <td>{{ c.name }}</td>
           <td>{{ c.month }}/{{ c.year }}</td>
           <td>{{ c.original_value|currency }}</td>
-          <!-- O campo fator é um número sem unidade, então não usamos o filtro currency -->
           <td>{{ c.factor }}</td>
           <td>{{ c.computed_value|currency }}</td>
           <td>{{ c.status }}</td>
           <td>
-            <!-- Edição inline -->
             <form action="{{ url_for('commission_edit', commission_id=c.id) }}" method="POST" class="d-inline">
               <input type="text" name="name" value="{{ c.name }}" class="form-control d-inline" style="width:100px;">
-              <input type="text" name="month_year" value="{% if c.month < 10 %}0{{ c.month }}{% else %}{{ c.month }}{% endif %}/{{ c.year }}" class="form-control d-inline" style="width:120px;" placeholder="MM/YYYY">
+              <input type="month" name="month_year" value="{{ '%04d-%02d' % (c.year, c.month) }}" class="form-control d-inline" style="width:120px;">
               <input type="text" name="original_value" value="{{ c.original_value }}" class="form-control d-inline" style="width:80px;">
               <input type="text" name="factor" value="{{ c.factor if c.factor else '' }}" class="form-control d-inline" style="width:60px;">
               <select name="status" class="form-select d-inline" style="width:130px;">
@@ -98,10 +129,44 @@
       </tbody>
     </table>
   </div>
+  <!-- Paginação para Comissões -->
+  {% if comm_pagination.pages > 1 %}
+  <nav>
+    <ul class="pagination">
+      {% if comm_pagination.has_prev %}
+      <li class="page-item">
+        <a class="page-link" href="{{ url_for('dashboard', filter_mode=filter_mode, filter_month_year=filter_month_year, filter_year=filter_year, page_comm=comm_pagination.prev_num, page_exp=exp_pagination.page) }}">Anterior</a>
+      </li>
+      {% else %}
+      <li class="page-item disabled"><span class="page-link">Anterior</span></li>
+      {% endif %}
+      
+      {% for p in comm_pagination.iter_pages() %}
+        {% if p %}
+          {% if p == comm_pagination.page %}
+          <li class="page-item active"><span class="page-link">{{ p }}</span></li>
+          {% else %}
+          <li class="page-item"><a class="page-link" href="{{ url_for('dashboard', filter_mode=filter_mode, filter_month_year=filter_month_year, filter_year=filter_year, page_comm=p, page_exp=exp_pagination.page) }}">{{ p }}</a></li>
+          {% endif %}
+        {% else %}
+          <li class="page-item disabled"><span class="page-link">…</span></li>
+        {% endif %}
+      {% endfor %}
+      
+      {% if comm_pagination.has_next %}
+      <li class="page-item">
+        <a class="page-link" href="{{ url_for('dashboard', filter_mode=filter_mode, filter_month_year=filter_month_year, filter_year=filter_year, page_comm=comm_pagination.next_num, page_exp=exp_pagination.page) }}">Próximo</a>
+      </li>
+      {% else %}
+      <li class="page-item disabled"><span class="page-link">Próximo</span></li>
+      {% endif %}
+    </ul>
+  </nav>
+  {% endif %}
   
-  <!-- Despesas -->
+  <!-- Formulário para nova Despesa -->
   <hr>
-  <h3>Despesas</h3>
+  <h3>Nova Despesa</h3>
   <form action="{{ url_for('expense_new') }}" method="POST" class="mb-3">
     <div class="row g-3">
       <div class="col-md-3">
@@ -110,7 +175,7 @@
       </div>
       <div class="col-md-3">
         <label class="form-label">Mês/Ano:</label>
-        <input type="text" name="month_year" class="form-control" placeholder="MM/YYYY" pattern="(0[1-9]|1[0-2])\/\d{4}" required>
+        <input type="month" name="month_year" class="form-control" required>
       </div>
       <div class="col-md-2">
         <label class="form-label">Valor:</label>
@@ -133,7 +198,7 @@
   </form>
   
   <!-- Tabela de Despesas -->
-  <div class="table-responsive">
+  <div class="table-responsive mb-3">
     <table class="table table-bordered table-striped">
       <thead>
         <tr>
@@ -156,12 +221,12 @@
           <td>
             <form action="{{ url_for('expense_edit', expense_id=e.id) }}" method="POST" class="d-inline">
               <input type="text" name="name" value="{{ e.name }}" class="form-control d-inline" style="width:90px;" required>
-              <input type="text" name="month_year" value="{% if e.month < 10 %}0{{ e.month }}{% else %}{{ e.month }}{% endif %}/{{ e.year }}" class="form-control d-inline" style="width:120px;" placeholder="MM/YYYY">
+              <input type="month" name="month_year" value="{{ '%04d-%02d' % (e.year, e.month) }}" class="form-control d-inline" style="width:120px;">
               <input type="text" name="value" value="{{ e.value }}" class="form-control d-inline" style="width:70px;">
               <label class="form-check-label d-inline">
                 <input type="checkbox" name="is_recurring" class="form-check-input" {% if e.is_recurring %}checked{% endif %}> Rec?
               </label>
-              <input type="text" name="installment_info" placeholder="Parcela" value="{{ e.installment_info if e.installment_info else '' }}" class="form-control d-inline" style="width:50px;">
+              <input type="text" name="installment_info" placeholder="Parcela" value="{{ e.installment_info or '' }}" class="form-control d-inline" style="width:50px;">
               <button type="submit" class="btn btn-primary btn-sm">Salvar</button>
             </form>
             |
@@ -174,5 +239,39 @@
       </tbody>
     </table>
   </div>
+  <!-- Paginação para Despesas -->
+  {% if exp_pagination.pages > 1 %}
+  <nav>
+    <ul class="pagination">
+      {% if exp_pagination.has_prev %}
+      <li class="page-item">
+        <a class="page-link" href="{{ url_for('dashboard', filter_mode=filter_mode, filter_month_year=filter_month_year, filter_year=filter_year, page_comm=comm_pagination.page, page_exp=exp_pagination.prev_num) }}">Anterior</a>
+      </li>
+      {% else %}
+      <li class="page-item disabled"><span class="page-link">Anterior</span></li>
+      {% endif %}
+      
+      {% for p in exp_pagination.iter_pages() %}
+        {% if p %}
+          {% if p == exp_pagination.page %}
+          <li class="page-item active"><span class="page-link">{{ p }}</span></li>
+          {% else %}
+          <li class="page-item"><a class="page-link" href="{{ url_for('dashboard', filter_mode=filter_mode, filter_month_year=filter_month_year, filter_year=filter_year, page_comm=comm_pagination.page, page_exp=p) }}">{{ p }}</a></li>
+          {% endif %}
+        {% else %}
+          <li class="page-item disabled"><span class="page-link">…</span></li>
+        {% endif %}
+      {% endfor %}
+      
+      {% if exp_pagination.has_next %}
+      <li class="page-item">
+        <a class="page-link" href="{{ url_for('dashboard', filter_mode=filter_mode, filter_month_year=filter_month_year, filter_year=filter_year, page_comm=comm_pagination.page, page_exp=exp_pagination.next_num) }}">Próximo</a>
+      </li>
+      {% else %}
+      <li class="page-item disabled"><span class="page-link">Próximo</span></li>
+      {% endif %}
+    </ul>
+  </nav>
+  {% endif %}
 </div>
 {% endblock %}
