@@ -2,6 +2,7 @@
 from flask import Flask, render_template, request, redirect, url_for, flash
 from datetime import datetime
 import json
+from sqlalchemy import text
 
 from config import Config
 from models import db, Commission, Expense, MonthlyReport
@@ -10,55 +11,75 @@ app = Flask(__name__)
 app.config.from_object(Config)
 db.init_app(app)
 
+# Filtro para formatar valores monetários (exceto o campo "fator")
+def format_currency(value):
+    try:
+        formatted = f"{value:,.2f}"
+        # Troca: vírgula -> marcador, ponto -> vírgula, marcador -> ponto.
+        formatted = formatted.replace(",", "X").replace(".", ",").replace("X", ".")
+        return "R$ " + formatted
+    except Exception:
+        return "R$ " + str(value)
+
+app.jinja_env.filters["currency"] = format_currency
+
+# =====================================================
+# Rota para recriar o banco (DESENVOLVIMENTO)
+# =====================================================
 @app.route("/create_db")
 def create_db():
     with app.app_context():
+        # Desabilitar verificações de FK (MySQL)
+        with db.engine.begin() as conn:
+            conn.execute(text("SET FOREIGN_KEY_CHECKS = 0;"))
+        db.drop_all()
         db.create_all()
+        with db.engine.begin() as conn:
+            conn.execute(text("SET FOREIGN_KEY_CHECKS = 1;"))
     return "Tabelas criadas com sucesso!"
 
+# =====================================================
+# Rota raiz
+# =====================================================
 @app.route("/")
 def index():
     return redirect(url_for("dashboard"))
 
-#################
-# DASHBOARD
-#################
+# =====================================================
+# DASHBOARD: Gerenciamento de Comissões e Despesas
+# =====================================================
 @app.route("/dashboard", methods=["GET"])
 def dashboard():
+    # Exibe todas as comissões e despesas (mesmo as reportadas, para consulta)
     commissions = Commission.query.all()
     expenses = Expense.query.all()
     return render_template("dashboard.html", commissions=commissions, expenses=expenses)
 
-##########
-# COMMISSION (CRUD)
-##########
-
+# -------------------------------
+# CRUD de Comissões
+# -------------------------------
 @app.route("/dashboard/commission/new", methods=["POST"])
 def commission_new():
-    # Campo "month_year" no formato "YYYY-MM" ou "MM/YYYY"
+    # O usuário insere a data no formato "MM/YYYY" ou "YYYY-MM"
     month_year = request.form.get("month_year")
-    name = request.form.get("name")  # Nome/descrição da comissão
-    original_value_str = request.form.get("original_value")  # pode ter vírgula
-    factor_str = request.form.get("factor")  # também pode ter vírgula
+    name = request.form.get("name")
+    original_value_str = request.form.get("original_value")
+    factor_str = request.form.get("factor")
     status = request.form.get("status")
 
-    # Converter month_year em month e year
-    # Se usar <input type="month"> = "YYYY-MM"
-    if "-" in month_year:  # Exemplo: "2023-06"
+    if "-" in month_year:
         parts = month_year.split("-")
         y = int(parts[0])
         m = int(parts[1])
     else:
-        # Caso contrário, se fosse "06/2023"
         parts = month_year.split("/")
         m = int(parts[0])
         y = int(parts[1])
 
-    # Converter original_value e factor (trocando vírgula por ponto)
     original_value = float(original_value_str.replace(",", ".")) if original_value_str else 0.0
     factor = float(factor_str.replace(",", ".")) if factor_str else None
 
-    commission = Commission(
+    new_commission = Commission(
         month=m,
         year=y,
         name=name,
@@ -66,7 +87,7 @@ def commission_new():
         factor=factor,
         status=status
     )
-    db.session.add(commission)
+    db.session.add(new_commission)
     db.session.commit()
 
     flash("Comissão criada com sucesso!", "success")
@@ -75,15 +96,13 @@ def commission_new():
 @app.route("/dashboard/commission/edit/<int:commission_id>", methods=["POST"])
 def commission_edit(commission_id):
     commission = Commission.query.get_or_404(commission_id)
-
     month_year = request.form.get("month_year")
     name = request.form.get("name")
     original_value_str = request.form.get("original_value")
     factor_str = request.form.get("factor")
     status = request.form.get("status")
 
-    # Parse do month_year
-    if "-" in month_year:  # "2023-06"
+    if "-" in month_year:
         parts = month_year.split("-")
         y = int(parts[0])
         m = int(parts[1])
@@ -111,28 +130,35 @@ def commission_delete(commission_id):
     flash("Comissão deletada!", "success")
     return redirect(url_for("dashboard"))
 
-##########
-# EXPENSE (CRUD)
-##########
+# -------------------------------
+# CRUD de Despesas
+# -------------------------------
 @app.route("/dashboard/expense/new", methods=["POST"])
 def expense_new():
     name = request.form.get("name")
+    month_year = request.form.get("month_year")
+    if "-" in month_year:
+        parts = month_year.split("-")
+        y = int(parts[0])
+        m = int(parts[1])
+    else:
+        parts = month_year.split("/")
+        m = int(parts[0])
+        y = int(parts[1])
     value_str = request.form.get("value")
-    month = request.form.get("month", type=int)
-    year = request.form.get("year", type=int)
-    is_recurring = True if request.form.get("is_recurring") == "on" else False
-
-    # Trocar vírgula por ponto no valor
     value = float(value_str.replace(",", ".")) if value_str else 0.0
+    is_recurring = True if request.form.get("is_recurring") == "on" else False
+    installment_info = request.form.get("installment_info")  # opcional
 
-    expense = Expense(
+    new_expense = Expense(
         name=name,
         value=value,
-        month=month,
-        year=year,
-        is_recurring=is_recurring
+        month=m,
+        year=y,
+        is_recurring=is_recurring,
+        installment_info=installment_info
     )
-    db.session.add(expense)
+    db.session.add(new_expense)
     db.session.commit()
     flash("Despesa criada com sucesso!", "success")
     return redirect(url_for("dashboard"))
@@ -140,18 +166,27 @@ def expense_new():
 @app.route("/dashboard/expense/edit/<int:expense_id>", methods=["POST"])
 def expense_edit(expense_id):
     expense = Expense.query.get_or_404(expense_id)
-
     name = request.form.get("name")
+    month_year = request.form.get("month_year")
+    if "-" in month_year:
+        parts = month_year.split("-")
+        y = int(parts[0])
+        m = int(parts[1])
+    else:
+        parts = month_year.split("/")
+        m = int(parts[0])
+        y = int(parts[1])
     value_str = request.form.get("value")
-    month = request.form.get("month", type=int)
-    year = request.form.get("year", type=int)
+    value = float(value_str.replace(",", ".")) if value_str else 0.0
     is_recurring = True if request.form.get("is_recurring") == "on" else False
+    installment_info = request.form.get("installment_info") or ""
 
     expense.name = name
-    expense.value = float(value_str.replace(",", ".")) if value_str else 0.0
-    expense.month = month
-    expense.year = year
+    expense.month = m
+    expense.year = y
+    expense.value = value
     expense.is_recurring = is_recurring
+    expense.installment_info = installment_info
 
     db.session.commit()
     flash("Despesa atualizada com sucesso!", "success")
@@ -165,34 +200,37 @@ def expense_delete(expense_id):
     flash("Despesa deletada!", "success")
     return redirect(url_for("dashboard"))
 
-##########
-# MONTHLY REPORT
-##########
+# =====================================================
+# RELATÓRIO MENSAL
+# =====================================================
 @app.route("/monthly_report", methods=["GET", "POST"])
 def monthly_report():
     if request.method == "POST":
+        # O usuário informa a data do relatório no formato "MM/YYYY"
         report_month_str = request.form.get("report_month")
-        # Se for "2023-08" (YYYY-MM) ou "08/2023" (MM/YYYY)
         if "-" in report_month_str:
             parts = report_month_str.split("-")
-            y = int(parts[0])
-            m = int(parts[1])
+            report_year = int(parts[0])
+            report_month = int(parts[1])
         else:
             parts = report_month_str.split("/")
-            m = int(parts[0])
-            y = int(parts[1])
+            report_month = int(parts[0])
+            report_year = int(parts[1])
 
-        selected_commissions = request.form.getlist("commission_ids", type=int)
-        selected_expenses = request.form.getlist("expense_ids", type=int)
+        # Para comissões: não filtrar pelo lançamento; o usuário seleciona dentre todas as comissões disponíveis (reported == False)
+        selected_commission_ids = request.form.getlist("commission_ids", type=int)
+        commissions = Commission.query.filter(Commission.id.in_(selected_commission_ids)).all()
 
-        commissions = Commission.query.filter(Commission.id.in_(selected_commissions)).all()
-        expenses = Expense.query.filter(Expense.id.in_(selected_expenses)).all()
+        # Para despesas: buscar as que NÃO são recorrentes com o mesmo mês/ano e todas as recorrentes
+        normal_expenses = Expense.query.filter_by(month=report_month, year=report_year, is_recurring=False).all()
+        recurring_expenses = Expense.query.filter_by(is_recurring=True).all()
+        final_expenses = normal_expenses + recurring_expenses
 
         total_comm = sum(c.computed_value for c in commissions)
-        total_exp = sum(e.value for e in expenses)
-        grand_total = total_comm - total_exp
+        total_exp = sum(e.value for e in final_expenses)
+        grand_total = total_comm + total_exp  # soma: comissões + despesas
 
-        # Monta JSON p/ salvar snapshot
+        # Monta snapshots completos em JSON
         commissions_data = json.dumps([
             {
                 "id": c.id,
@@ -205,6 +243,7 @@ def monthly_report():
                 "computed_value": c.computed_value
             } for c in commissions
         ])
+
         expenses_data = json.dumps([
             {
                 "id": e.id,
@@ -212,13 +251,14 @@ def monthly_report():
                 "value": e.value,
                 "month": e.month,
                 "year": e.year,
+                "installment_info": e.installment_info,
                 "is_recurring": e.is_recurring
-            } for e in expenses
+            } for e in final_expenses
         ])
 
         report = MonthlyReport(
-            report_month=m,
-            report_year=y,
+            report_month=report_month,
+            report_year=report_year,
             total_commissions=total_comm,
             total_expenses=total_exp,
             grand_total=grand_total,
@@ -228,27 +268,51 @@ def monthly_report():
         db.session.add(report)
         db.session.commit()
 
+        # Marcar as comissões utilizadas como reportadas (para que não sejam reutilizadas)
+        for c in commissions:
+            c.reported = True
+        db.session.commit()
+
         flash("Relatório gerado com sucesso!", "success")
+        # Redireciona para a página de visualização do relatório
         return redirect(url_for("monthly_report_view", report_id=report.id))
 
-    # GET
-    commissions = Commission.query.all()
-    expenses = Expense.query.all()
-    return render_template("monthly_report_form.html", commissions=commissions, expenses=expenses)
+    # GET: Exibe o formulário para escolher a data do relatório e selecionar as comissões disponíveis
+    available_commissions = Commission.query.filter_by(reported=False).all()
+    available_expenses = Expense.query.filter_by(is_recurring=False).all()
+    return render_template("monthly_report_form.html", 
+                           available_commissions=available_commissions, 
+                           available_expenses=available_expenses)
 
 @app.route("/monthly_report/view/<int:report_id>")
 def monthly_report_view(report_id):
     report = MonthlyReport.query.get_or_404(report_id)
     commissions_data = json.loads(report.commissions_data) if report.commissions_data else []
     expenses_data = json.loads(report.expenses_data) if report.expenses_data else []
-    return render_template(
-        "monthly_report_view.html",
-        report=report,
-        commissions_data=commissions_data,
-        expenses_data=expenses_data
-    )
+    return render_template("monthly_report_view.html",
+                           report=report,
+                           commissions_data=commissions_data,
+                           expenses_data=expenses_data)
 
+@app.route("/monthly_report/delete/<int:report_id>", methods=["POST"])
+def monthly_report_delete(report_id):
+    report = MonthlyReport.query.get_or_404(report_id)
+    # Antes de deletar o relatório, desmarcar as comissões que estavam nele
+    if report.commissions_data:
+        snapshot = json.loads(report.commissions_data)
+        for item in snapshot:
+            commission = Commission.query.get(item["id"])
+            if commission:
+                commission.reported = False
+    db.session.delete(report)
+    db.session.commit()
+    flash("Relatório mensal deletado!", "success")
+    return redirect(url_for("monthly_reports_list"))
 
-# Roda a aplicação ao executar "python app.py"
+@app.route("/monthly_reports", methods=["GET"])
+def monthly_reports_list():
+    reports = MonthlyReport.query.order_by(MonthlyReport.generated_date.desc()).all()
+    return render_template("monthly_reports_list.html", reports=reports)
+
 if __name__ == "__main__":
     app.run(debug=True)

@@ -1,0 +1,40 @@
+<!-- templates/monthly_reports_list.html -->
+{% extends "base.html" %}
+{% block content %}
+<div class="container my-4">
+  <h2>Relatórios Mensais Emitidos</h2>
+  <div class="table-responsive">
+    <table class="table table-bordered table-striped">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Mês/Ano</th>
+          <th>Total Comissões</th>
+          <th>Total Despesas</th>
+          <th>Total Final</th>
+          <th>Ações</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in reports %}
+        <tr>
+          <td>{{ r.id }}</td>
+          <td>{{ r.report_month }}/{{ r.report_year }}</td>
+          <td>{{ r.total_commissions|currency }}</td>
+          <td>{{ r.total_expenses|currency }}</td>
+          <td>{{ r.grand_total|currency }}</td>
+          <td>
+            <a href="{{ url_for('monthly_report_view', report_id=r.id) }}" class="btn btn-sm btn-primary">Ver</a>
+            <form action="{{ url_for('monthly_report_delete', report_id=r.id) }}" method="POST" class="d-inline">
+              <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Tem certeza de que deseja deletar este relatório?');">Del</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <a href="{{ url_for('monthly_report') }}" class="btn btn-secondary">Gerar Novo Relatório</a>
+  <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">Voltar ao Dashboard</a>
+</div>
+{% endblock %}

@@ -7,19 +7,13 @@ db = SQLAlchemy()
 class Commission(db.Model):
     __tablename__ = "commissions"
     id = db.Column(db.Integer, primary_key=True)
-
-    # Em vez de ter month e year separados, você pode continuar tendo (month, year),
-    # ou armazenar numa string do tipo "YYYY-MM". Aqui vou manter month e year
-    # internamente, mas farei o parse de um campo único no "app.py".
     month = db.Column(db.Integer, nullable=False)
     year = db.Column(db.Integer, nullable=False)
-
-    # Novo campo: nome/descrição da comissão
-    name = db.Column(db.String(200), nullable=False)  # Pode ser livre
-
+    name = db.Column(db.String(200), nullable=False)
     original_value = db.Column(db.Float, nullable=False)
     factor = db.Column(db.Float, nullable=True)
     status = db.Column(db.String(50), nullable=False)
+    reported = db.Column(db.Boolean, default=False)
 
     @property
     def computed_value(self):
@@ -35,6 +29,7 @@ class Expense(db.Model):
     month = db.Column(db.Integer, nullable=False)
     year = db.Column(db.Integer, nullable=False)
     is_recurring = db.Column(db.Boolean, default=False)
+    installment_info = db.Column(db.String(50), nullable=True)
 
 class MonthlyReport(db.Model):
     __tablename__ = "monthly_reports"
@@ -45,5 +40,5 @@ class MonthlyReport(db.Model):
     total_commissions = db.Column(db.Float, nullable=False, default=0.0)
     total_expenses = db.Column(db.Float, nullable=False, default=0.0)
     grand_total = db.Column(db.Float, nullable=False, default=0.0)
-    commissions_data = db.Column(db.Text, nullable=True)  # JSON
-    expenses_data = db.Column(db.Text, nullable=True)     # JSON
+    commissions_data = db.Column(db.Text, nullable=True)
+    expenses_data = db.Column(db.Text, nullable=True)

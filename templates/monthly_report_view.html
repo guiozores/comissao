@@ -1,67 +1,73 @@
+<!-- templates/monthly_report_view.html -->
 {% extends "base.html" %}
 {% block content %}
-<h2>Relatório Mensal #{{ report.id }}</h2>
-<p>Mês/Ano: {{ report.report_month }}/{{ report.report_year }}</p>
-<p>Gerado em: {{ report.generated_date }}</p>
+<div class="container my-4">
+  <h2>Relatório Mensal #{{ report.id }}</h2>
+  <p><strong>Mês/Ano:</strong> {{ report.report_month }}/{{ report.report_year }}</p>
+  <p><strong>Gerado em:</strong> {{ report.generated_date.strftime("%d/%m/%Y, %H:%M:%S") }}</p>
 
-<h3>Comissões Incluídas</h3>
-<table border="1" cellpadding="5" cellspacing="0">
-  <thead>
-    <tr>
-      <th>ID</th>
-      <th>Nome</th> <!-- NOVO: Adicionamos a coluna Nome -->
-      <th>Mês/Ano</th>
-      <th>Valor Original</th>
-      <th>Fator</th>
-      <th>Valor Computado</th>
-      <th>Status</th>
-    </tr>
-  </thead>
-  <tbody>
-  {% for c in commissions_data %}
-    <tr>
-      <td>{{ c.id }}</td>
-      <td>{{ c.name }}</td>  <!-- Exibe nome/descrição da comissão -->
-      <td>{{ c.month }}/{{ c.year }}</td>
-      <td>{{ c.original_value }}</td>
-      <td>{{ c.factor }}</td>
-      <td>{{ c.computed_value }}</td>
-      <td>{{ c.status }}</td>
-    </tr>
-  {% endfor %}
-  </tbody>
-</table>
-<p><strong>Total de Comissões:</strong> R$ {{ report.total_commissions }}</p>
+  <h3 class="mt-4">Comissões Incluídas</h3>
+  <div class="table-responsive">
+    <table class="table table-bordered table-striped">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Nome</th>
+          <th>Mês/Ano</th>
+          <th>Valor Original</th>
+          <th>Fator</th>
+          <th>Valor Computado</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in commissions_data %}
+        <tr>
+          <td>{{ c.id }}</td>
+          <td>{{ c.name }}</td>
+          <td>{{ c.month }}/{{ c.year }}</td>
+          <td>{{ c.original_value|currency }}</td>
+          <td>{{ c.factor }}</td>
+          <td>{{ c.computed_value|currency }}</td>
+          <td>{{ c.status }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p><strong>Total de Comissões:</strong> {{ report.total_commissions|currency }}</p>
 
-<h3>Despesas Incluídas</h3>
-<table border="1" cellpadding="5" cellspacing="0">
-  <thead>
-    <tr>
-      <th>ID</th>
-      <th>Nome</th>
-      <th>Valor</th>
-      <th>Mês</th>
-      <th>Ano</th>
-      <th>Recorrente?</th>
-    </tr>
-  </thead>
-  <tbody>
-  {% for e in expenses_data %}
-    <tr>
-      <td>{{ e.id }}</td>
-      <td>{{ e.name }}</td>
-      <td>{{ e.value }}</td>
-      <td>{{ e.month }}</td>
-      <td>{{ e.year }}</td>
-      <td>{{ 'Sim' if e.is_recurring else 'Não' }}</td>
-    </tr>
-  {% endfor %}
-  </tbody>
-</table>
-<p><strong>Total de Despesas:</strong> R$ {{ report.total_expenses }}</p>
+  <h3 class="mt-4">Despesas Incluídas</h3>
+  <div class="table-responsive">
+    <table class="table table-bordered table-striped">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Nome</th>
+          <th>Mês/Ano</th>
+          <th>Valor</th>
+          <th>Parcela</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for e in expenses_data %}
+        <tr>
+          <td>{{ e.id }}</td>
+          <td>{{ e.name }}</td>
+          <td>{{ e.month }}/{{ e.year }}</td>
+          <td>{{ e.value|currency }}</td>
+          <td>{% if e.installment_info %}{{ e.installment_info }}{% else %}--{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p><strong>Total de Despesas:</strong> {{ report.total_expenses|currency }}</p>
 
-<hr>
-<h3>Valor Final (Comissões - Despesas): R$ {{ report.grand_total }}</h3>
-
-<a href="{{ url_for('dashboard') }}">Voltar ao Dashboard</a>
+  <hr>
+  <h3>Valor Final (Comissões + Despesas): {{ report.grand_total|currency }}</h3>
+  <div class="mt-3">
+    <a href="{{ url_for('monthly_report') }}" class="btn btn-secondary">Voltar à Geração do Relatório</a>
+  </div>
+</div>
 {% endblock %}

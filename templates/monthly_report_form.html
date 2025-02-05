@@ -1,28 +1,47 @@
 <!-- templates/monthly_report_form.html -->
 {% extends "base.html" %}
 {% block content %}
-<h2>Gerar Relatório Mensal</h2>
-<form method="POST">
-  <label>Mês/Ano do Relatório:
-    <input type="month" name="report_month" required>
-  </label>
-
-  <h3>Selecione Comissões</h3>
-  {% for c in commissions %}
-    <div>
-      <input type="checkbox" name="commission_ids" value="{{ c.id }}" id="comm_{{ c.id }}">
-      <label for="comm_{{ c.id }}">#{{ c.id }} - {{ c.name }} ({{ c.month }}/{{ c.year }}, R$ {{ c.original_value }})</label>
+<div class="container my-4">
+  <h2>Gerar Novo Relatório Mensal</h2>
+  <form method="POST" action="{{ url_for('monthly_report') }}">
+    <div class="mb-3">
+      <label class="form-label">Mês/Ano do Relatório:</label>
+      <input type="text" name="report_month" class="form-control" placeholder="MM/YYYY" pattern="(0[1-9]|1[0-2])\/\d{4}" required>
     </div>
-  {% endfor %}
-
-  <h3>Selecione Despesas</h3>
-  {% for e in expenses %}
-    <div>
-      <input type="checkbox" name="expense_ids" value="{{ e.id }}" id="exp_{{ e.id }}">
-      <label for="exp_{{ e.id }}">#{{ e.id }} - {{ e.name }} (R$ {{ e.value }}, M:{{ e.month }}/{{ e.year }})</label>
+    <!-- Se o usuário precisa selecionar itens, podemos listar as comissões e despesas disponíveis, ou simplesmente permitir que o sistema gere automaticamente.
+         Aqui optamos por exibir as listas para seleção: -->
+    <h4>Selecione as Comissões para incluir</h4>
+    {% if available_commissions %}
+      {% for c in available_commissions %}
+      <div class="form-check">
+        <input class="form-check-input" type="checkbox" name="commission_ids" value="{{ c.id }}" id="comm_{{ c.id }}">
+        <label class="form-check-label" for="comm_{{ c.id }}">
+          #{{ c.id }} - {{ c.name }} (Valor: {{ c.original_value|currency }}, Disponível em: {{ c.month }}/{{ c.year }})
+        </label>
+      </div>
+      {% endfor %}
+    {% else %}
+      <p>Nenhuma comissão disponível para seleção.</p>
+    {% endif %}
+    
+    <h4 class="mt-3">Selecione as Despesas NÃO recorrentes para incluir</h4>
+    {% if available_expenses %}
+      {% for e in available_expenses %}
+      <div class="form-check">
+        <input class="form-check-input" type="checkbox" name="expense_ids" value="{{ e.id }}" id="exp_{{ e.id }}">
+        <label class="form-check-label" for="exp_{{ e.id }}">
+          #{{ e.id }} - {{ e.name }} (Valor: {{ e.value|currency }}, Mês/Ano: {{ e.month }}/{{ e.year }})
+        </label>
+      </div>
+      {% endfor %}
+    {% else %}
+      <p>Nenhuma despesa não recorrente disponível para seleção.</p>
+    {% endif %}
+    
+    <div class="mt-3">
+      <button type="submit" class="btn btn-primary">Gerar Relatório</button>
+      <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">Voltar ao Dashboard</a>
     </div>
-  {% endfor %}
-
-  <button type="submit">Gerar Relatório</button>
-</form>
+  </form>
+</div>
 {% endblock %}
