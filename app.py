@@ -1,4 +1,3 @@
-# app.py
 from flask import Flask, render_template, request, redirect, url_for, flash
 from datetime import datetime
 import json
@@ -6,13 +5,13 @@ import re
 from sqlalchemy import text
 
 from config import Config
-from models import db, Commission, Expense, MonthlyReport
+from models import db, Commission, Expense, MonthlyReport, FixedCost
 
 app = Flask(__name__)
 app.config.from_object(Config)
 db.init_app(app)
 
-# Filtro para formatação monetária (exceto para "fator")
+# Filtro para formatação monetária (exceto o campo "fator")
 def format_currency(value):
     try:
         formatted = f"{value:,.2f}"
@@ -24,8 +23,15 @@ def format_currency(value):
 
 app.jinja_env.filters["currency"] = format_currency
 
+@app.context_processor
+def inject_fixed_cost_model():
+    from models import FixedCost
+    fixed = FixedCost.query.get(1)
+    return dict(FixedCost=FixedCost, fixed_cost=fixed)
+
+
 # -------------------------------------------------
-# Função para processar despesas extras (para relatório)
+# Função para processar despesas extras (na tela do relatório)
 # -------------------------------------------------
 def parse_extra_expenses(text):
     """
@@ -56,6 +62,44 @@ def parse_extra_expenses(text):
         expenses.append({"name": description, "value": value})
     return expenses
 
+# -------------------------------------------------
+# Função para filtrar despesas recorrentes com parcelas
+# -------------------------------------------------
+def filter_recurring_expenses(expenses, report_month, report_year):
+    """
+    Para cada despesa recorrente com installment_info no formato "X/Y",
+    calcula o número de meses decorridos entre o lançamento e o relatório.
+    Se o número de parcelas atual (diff + 1) for menor ou igual ao total,
+    atualiza o installment_info para o valor atual e inclui a despesa.
+    Caso contrário, ignora a despesa.
+    Despesas recorrentes sem installment_info (ou não no formato X/Y) são incluídas se a data de lançamento é anterior ou igual ao período do relatório.
+    """
+    filtered = []
+    for e in expenses:
+        if e.installment_info:
+            m = re.match(r"(\d+)/(\d+)", e.installment_info)
+            if m:
+                start_installment = int(m.group(1))  # geralmente 1
+                total_installments = int(m.group(2))
+                # Calcular a diferença de meses entre a data de lançamento e o relatório
+                diff = (report_year - e.year) * 12 + (report_month - e.month)
+                current_installment = diff + 1
+                if current_installment >= 1 and current_installment <= total_installments:
+                    # Atualiza o installment_info para refletir o valor atual
+                    e.installment_info = f"{current_installment}/{total_installments}"
+                    filtered.append(e)
+            else:
+                # Se não seguir o padrão, incluir se o lançamento for anterior ou igual ao relatório
+                diff = (report_year - e.year) * 12 + (report_month - e.month)
+                if diff >= 0:
+                    filtered.append(e)
+        else:
+            # Despesa recorrente sem installment_info: incluir se o lançamento é anterior ou igual
+            diff = (report_year - e.year) * 12 + (report_month - e.month)
+            if diff >= 0:
+                filtered.append(e)
+    return filtered
+
 # =====================================================
 # Rota para recriar o banco (DESENVOLVIMENTO)
 # =====================================================
@@ -66,6 +110,11 @@ def create_db():
             conn.execute(text("SET FOREIGN_KEY_CHECKS = 0;"))
         db.drop_all()
         db.create_all()
+        # Cria também um registro para FixedCost, se não existir
+        if not FixedCost.query.get(1):
+            fc = FixedCost(vivo=50.0, va=100.0)
+            db.session.add(fc)
+            db.session.commit()
         with db.engine.begin() as conn:
             conn.execute(text("SET FOREIGN_KEY_CHECKS = 1;"))
     return "Tabelas criadas com sucesso!"
@@ -85,20 +134,16 @@ def dashboard():
     # Obter parâmetros de filtro via query string
     # filter_mode: "month" ou "year" ou vazio (sem filtro)
     filter_mode = request.args.get("filter_mode")
-    # Se for "month", o valor vem do parâmetro "filter_month_year" no formato "YYYY-MM"
-    filter_month_year = request.args.get("filter_month_year")
-    # Se for "year", o valor vem do parâmetro "filter_year"
-    filter_year = request.args.get("filter_year")
+    filter_month_year = request.args.get("filter_month_year")  # quando for "month": formato "YYYY-MM"
+    filter_year = request.args.get("filter_year")              # quando for "year"
     page_comm = request.args.get("page_comm", 1, type=int)
     page_exp = request.args.get("page_exp", 1, type=int)
     
-    # Define itens por página: 8 se houver filtro, 5 caso contrário
     per_page = 8 if filter_mode in ["month", "year"] else 5
 
     # Query para Comissões
     commissions_query = Commission.query
     if filter_mode == "month" and filter_month_year:
-        # O valor é "YYYY-MM": extrair ano e mês
         parts = filter_month_year.split("-")
         if len(parts) == 2:
             y = int(parts[0])
@@ -116,9 +161,10 @@ def dashboard():
         if len(parts) == 2:
             y = int(parts[0])
             m = int(parts[1])
-            expenses_query = expenses_query.filter(Expense.year == y, Expense.month == m)
+            # Para despesas não recorrentes, filtrar por mês/ano
+            expenses_query = expenses_query.filter(Expense.year == y, Expense.month == m, Expense.is_recurring==False)
     elif filter_mode == "year" and filter_year:
-        expenses_query = expenses_query.filter(Expense.year == int(filter_year))
+        expenses_query = expenses_query.filter(Expense.year == int(filter_year), Expense.is_recurring==False)
     expenses_query = expenses_query.order_by(Expense.id.desc())
     exp_pagination = expenses_query.paginate(page=page_exp, per_page=per_page, error_out=False)
 
@@ -136,7 +182,7 @@ def dashboard():
 # -------------------------------
 @app.route("/dashboard/commission/new", methods=["POST"])
 def commission_new():
-    month_year = request.form.get("month_year")  # Espera "MM/YYYY" ou "YYYY-MM"
+    month_year = request.form.get("month_year")  # "MM/YYYY" ou "YYYY-MM"
     name = request.form.get("name")
     original_value_str = request.form.get("original_value")
     factor_str = request.form.get("factor")
@@ -302,9 +348,10 @@ def monthly_report():
         recurring_expenses = Expense.query.filter_by(is_recurring=True).all()
         final_expenses = normal_expenses + recurring_expenses
 
-        # Processa as despesas extras inseridas no textarea
+        # Processa as despesas extras inseridas no textarea:
+        # Aqui, adicionamos a condição extra_expenses_text and extra_expenses_text.strip() para garantir que não seja vazio
         extra_expenses_text = request.form.get("extra_expenses")
-        if extra_expenses_text:
+        if extra_expenses_text and extra_expenses_text.strip():
             parsed_extras = parse_extra_expenses(extra_expenses_text)
             for exp in parsed_extras:
                 new_exp = Expense(
@@ -316,7 +363,7 @@ def monthly_report():
                     installment_info=""
                 )
                 db.session.add(new_exp)
-                db.session.flush()
+                db.session.flush()  # Para garantir que o novo registro receba um ID
                 final_expenses.append(new_exp)
             db.session.commit()
 
@@ -361,7 +408,7 @@ def monthly_report():
         db.session.add(report)
         db.session.commit()
 
-        # Marcar as comissões utilizadas como reportadas
+        # Marcar as comissões utilizadas como reportadas para que não sejam reutilizadas
         for c in commissions:
             c.reported = True
         db.session.commit()
@@ -376,6 +423,7 @@ def monthly_report():
                            available_commissions=available_commissions, 
                            available_expenses=available_expenses)
 
+
 # =====================================================
 # VISUALIZAÇÃO DO RELATÓRIO MENSAL
 # =====================================================
@@ -384,10 +432,16 @@ def monthly_report_view(report_id):
     report = MonthlyReport.query.get_or_404(report_id)
     commissions_data = json.loads(report.commissions_data) if report.commissions_data else []
     expenses_data = json.loads(report.expenses_data) if report.expenses_data else []
+    fixed_cost = FixedCost.query.get(1)
+    vivo = fixed_cost.vivo if fixed_cost else 0.0
+    va = fixed_cost.va if fixed_cost else 0.0
     return render_template("monthly_report_view.html",
                            report=report,
                            commissions_data=commissions_data,
-                           expenses_data=expenses_data)
+                           expenses_data=expenses_data,
+                           fixed_vivo=vivo,
+                           fixed_va=va)
+
 
 # =====================================================
 # DELEÇÃO DO RELATÓRIO MENSAL (Libera as comissões)
@@ -413,6 +467,32 @@ def monthly_report_delete(report_id):
 def monthly_reports_list():
     reports = MonthlyReport.query.order_by(MonthlyReport.generated_date.desc()).all()
     return render_template("monthly_reports_list.html", reports=reports)
+
+# =====================================================
+# Rota para atualizar os Custos Fixos via Modal
+# =====================================================
+@app.route("/update_fixed_costs", methods=["POST"])
+def update_fixed_costs():
+    vivo = request.form.get("vivo")
+    va = request.form.get("va")
+    try:
+        vivo_val = float(vivo.replace(",", "."))
+    except:
+        vivo_val = 0.0
+    try:
+        va_val = float(va.replace(",", "."))
+    except:
+        va_val = 0.0
+    fixed_cost = FixedCost.query.get(1)
+    if not fixed_cost:
+        fixed_cost = FixedCost(vivo=vivo_val, va=va_val)
+        db.session.add(fixed_cost)
+    else:
+        fixed_cost.vivo = vivo_val
+        fixed_cost.va = va_val
+    db.session.commit()
+    flash("Custos fixos atualizados!", "success")
+    return redirect(url_for("dashboard"))
 
 if __name__ == "__main__":
     app.run(debug=True)

@@ -5,6 +5,40 @@
   <h2>Dashboard</h2>
   <p>Gerencie Comissões e Despesas.</p>
   
+  <!-- Botão para abrir o modal de Custos Fixos (VIVO e V.A.) -->
+  <button type="button" class="btn btn-info mb-3" data-bs-toggle="modal" data-bs-target="#fixedCostsModal">
+    Editar Custos Fixos (VIVO e V.A.)
+  </button>
+  
+  <!-- Modal de Custos Fixos -->
+  <div class="modal fade" id="fixedCostsModal" tabindex="-1" aria-labelledby="fixedCostsModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+      <form method="POST" action="{{ url_for('update_fixed_costs') }}">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="fixedCostsModalLabel">Atualizar Custos Fixos</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+          </div>
+          <div class="modal-body">
+            {% set fixed = FixedCost.query.get(1) %}
+            <div class="mb-3">
+              <label class="form-label">Conta Celular VIVO:</label>
+              <input type="text" name="vivo" class="form-control" value="{{ fixed.vivo|currency if fixed else 'R$ 0,00' }}">
+            </div>
+            <div class="mb-3">
+              <label class="form-label">V.A. (Vale Alimentação):</label>
+              <input type="text" name="va" class="form-control" value="{{ fixed.va|currency if fixed else 'R$ 0,00' }}">
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <button type="submit" class="btn btn-primary">Salvar</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+  
   <!-- Filtro: escolha entre "Sem Filtro", "Por Mês/Ano" ou "Por Ano" -->
   <form method="GET" action="{{ url_for('dashboard') }}" class="row g-3 mb-4">
     <div class="col-md-3">
@@ -15,7 +49,7 @@
         <option value="year" {% if filter_mode=='year' %}selected{% endif %}>Por Ano</option>
       </select>
     </div>
-    <!-- Campo para filtro por Mês/Ano (nativo) -->
+    <!-- Campo para filtro por Mês/Ano -->
     <div class="col-md-3" id="month_year_div" style="display: {% if filter_mode=='month' %}block{% else %}none{% endif %};">
       <label class="form-label">Mês/Ano:</label>
       <input type="month" name="filter_month_year" class="form-control" value="{{ filter_month_year or '' }}">
@@ -32,7 +66,6 @@
   </form>
   
   <script>
-    // Script simples para mostrar/ocultar os campos conforme o filtro selecionado
     document.getElementById('filter_mode').addEventListener('change', function() {
       var mode = this.value;
       document.getElementById('month_year_div').style.display = (mode === 'month') ? 'block' : 'none';
@@ -57,6 +90,7 @@
       </div>
       <div class="col-md-3">
         <label class="form-label">Mês/Ano:</label>
+        <!-- Usando input type="month" nativo -->
         <input type="month" name="month_year" class="form-control" required>
       </div>
       <div class="col-md-2">

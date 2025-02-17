@@ -14,7 +14,7 @@ class Commission(db.Model):
     factor = db.Column(db.Float, nullable=True)
     status = db.Column(db.String(50), nullable=False)
     reported = db.Column(db.Boolean, default=False)
-
+    
     @property
     def computed_value(self):
         if self.factor:
@@ -42,3 +42,9 @@ class MonthlyReport(db.Model):
     grand_total = db.Column(db.Float, nullable=False, default=0.0)
     commissions_data = db.Column(db.Text, nullable=True)
     expenses_data = db.Column(db.Text, nullable=True)
+
+class FixedCost(db.Model):
+    __tablename__ = "fixed_costs"
+    id = db.Column(db.Integer, primary_key=True)
+    vivo = db.Column(db.Float, nullable=False, default=0.0)
+    va = db.Column(db.Float, nullable=False, default=0.0)
