@@ -1,311 +1,611 @@
 <!-- templates/dashboard.html -->
 {% extends "base.html" %}
 {% block content %}
-<div class="container my-4">
-  <h2>Dashboard</h2>
-  <p>Gerencie Comissões e Despesas.</p>
-  
-  <!-- Botão para abrir o modal de Custos Fixos (VIVO e V.A.) -->
-  <button type="button" class="btn btn-info mb-3" data-bs-toggle="modal" data-bs-target="#fixedCostsModal">
-    Editar Custos Fixos (VIVO e V.A.)
-  </button>
-  
+<div class="container py-5">
+  <!-- Cabeçalho -->
+  <header class="mb-5">
+    <div class="row align-items-center">
+      <div class="col-md-8">
+        <h1 class="display-6 mb-0">Dashboard Financeiro</h1>
+        <p class="text-muted">Gerenciamento de Comissões e Despesas</p>
+      </div>
+      <div class="col-md-4 text-md-end">
+        <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#fixedCostsModal">
+          <i class="bi bi-gear-fill me-1"></i> Configurar Custos Fixos
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Cards de Ações Rápidas -->
+  <div class="row mb-4 g-3">
+    <div class="col-md-6">
+      <div class="card shadow-sm h-100">
+        <div class="card-body">
+          <h5 class="card-title">Relatórios</h5>
+          <p class="card-text text-muted">Gere e visualize relatórios financeiros</p>
+          <div class="d-flex gap-2">
+            <a href="{{ url_for('monthly_report') }}" class="btn btn-primary">
+              <i class="bi bi-file-earmark-text me-1"></i> Gerar Relatório Mensal
+            </a>
+            <a href="{{ url_for('monthly_reports_list') }}" class="btn btn-outline-secondary">
+              <i class="bi bi-list-ul me-1"></i> Histórico
+            </a>
+            <a href="{{ url_for('commission_balance') }}" class="btn btn-outline-success">
+              <i class="bi bi-bar-chart-line me-1"></i> Balanço de Comissões
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-6">
+      <div class="card shadow-sm h-100">
+        <div class="card-body">
+          <h5 class="card-title">Filtrar Dados</h5>
+          <form method="GET" action="{{ url_for('dashboard') }}" id="filter-form">
+            <div class="row g-2">
+              <div class="col-md-5">
+                <select name="filter_mode" id="filter_mode" class="form-select">
+                  <option value="">Sem Filtro</option>
+                  <option value="month" {% if filter_mode=='month' %}selected{% endif %}>Por Mês/Ano</option>
+                  <option value="year" {% if filter_mode=='year' %}selected{% endif %}>Por Ano</option>
+                </select>
+              </div>
+              <div class="col-md-4" id="month_year_div" style="display: {% if filter_mode=='month' %}block{% else %}none{% endif %};">
+                <input type="month" name="filter_month_year" class="form-control" value="{{ filter_month_year or '' }}" placeholder="Mês/Ano">
+              </div>
+              <div class="col-md-4" id="year_div" style="display: {% if filter_mode=='year' %}block{% else %}none{% endif %};">
+                <input type="number" name="filter_year" class="form-control" placeholder="AAAA" min="1900" max="2100" value="{{ filter_year or '' }}">
+              </div>
+              <div class="col-md-3">
+                <div class="d-flex gap-2">
+                  <button type="submit" class="btn btn-sm btn-success">
+                    <i class="bi bi-funnel-fill me-1"></i> Filtrar
+                  </button>
+                  <a href="{{ url_for('dashboard') }}" class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-x-circle me-1"></i> Limpar
+                  </a>
+                </div>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Abas para Comissões e Despesas -->
+  <div class="card shadow-sm mb-5">
+    <div class="card-header bg-white p-0">
+      <ul class="nav nav-tabs" id="financeTab" role="tablist">
+        <li class="nav-item" role="presentation">
+          <button class="nav-link active px-4 py-3" id="commissions-tab" data-bs-toggle="tab" data-bs-target="#commissions" type="button" role="tab" aria-controls="commissions" aria-selected="true">
+            <i class="bi bi-currency-dollar me-1"></i> Comissões
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link px-4 py-3" id="expenses-tab" data-bs-toggle="tab" data-bs-target="#expenses" type="button" role="tab" aria-controls="expenses" aria-selected="false">
+            <i class="bi bi-credit-card me-1"></i> Despesas
+          </button>
+        </li>
+      </ul>
+    </div>
+    <div class="card-body p-4">
+      <div class="tab-content" id="financeTabContent">
+        <!-- Aba de Comissões -->
+        <div class="tab-pane fade show active" id="commissions" role="tabpanel" aria-labelledby="commissions-tab">
+          <!-- Formulário para nova Comissão -->
+          <div class="accordion mb-4" id="newCommissionAccordion">
+            <div class="accordion-item">
+              <h2 class="accordion-header" id="headingNewCommission">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseNewCommission" aria-expanded="false" aria-controls="collapseNewCommission">
+                  <i class="bi bi-plus-circle me-2"></i> Nova Comissão
+                </button>
+              </h2>
+              <div id="collapseNewCommission" class="accordion-collapse collapse" aria-labelledby="headingNewCommission" data-bs-parent="#newCommissionAccordion">
+                <div class="accordion-body">
+                  <form action="{{ url_for('commission_new') }}" method="POST">
+                    <div class="row g-3">
+                      <div class="col-md-3">
+                        <label class="form-label">Nome</label>
+                        <input type="text" name="name" class="form-control" required>
+                      </div>
+                      <div class="col-md-3">
+                        <label class="form-label">Mês/Ano</label>
+                        <input type="month" name="month_year" class="form-control" required>
+                      </div>
+                      <div class="col-md-2">
+                        <label class="form-label">Valor</label>
+                        <div class="input-group">
+                          <span class="input-group-text">R$</span>
+                          <input type="text" name="original_value" class="form-control" placeholder="0,00" required>
+                        </div>
+                      </div>
+                      <div class="col-md-2">
+                        <label class="form-label">Fator</label>
+                        <input type="text" name="factor" class="form-control" placeholder="0,10">
+                      </div>
+                    </div>
+                    <div class="row g-3 mt-3">
+                      <div class="col-md-6">
+                        <label class="form-label">Status da Empresa</label>
+                        <select name="company_status" class="form-select" required>
+                          <option value="previsto">Previsto</option>
+                          <option value="em execução">Em Execução</option>
+                          <option value="medição aprovada">Medição Aprovada</option>
+                          <option value="em caixa">Em Caixa</option>
+                          <option value="pago">Pago</option>
+                        </select>
+                      </div>
+                      <div class="col-md-6">
+                        <label class="form-label">Status do Funcionário</label>
+                        <select name="employee_status" class="form-select" required>
+                          <option value="previsto">Previsto</option>
+                          <option value="aguardando pagamento">Aguardando Pagamento</option>
+                          <option value="pago">Pago</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div class="mt-3 text-end">
+                      <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-plus-lg me-1"></i> Adicionar Comissão
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Tabela de Comissões -->
+          <div class="table-responsive">
+            <table class="table table-hover align-middle">
+              <thead class="table-light">
+                <tr>
+                  <th scope="col" class="text-center">#</th>
+                  <th scope="col">Nome</th>
+                  <th scope="col">Mês/Ano</th>
+                  <th scope="col">Valor Original</th>
+                  <th scope="col">Fator</th>
+                  <th scope="col">Valor Computado</th>
+                  <th scope="col">Status</th>
+                  <th scope="col" class="text-center">Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for c in commissions %}
+                <tr>
+                  <td class="text-center text-muted">{{ c.id }}</td>
+                  <td>{{ c.name }}</td>
+                  <td>{{ c.month }}/{{ c.year }}</td>
+                  <td>{{ c.original_value|currency }}</td>
+                  <td>{{ c.factor }}</td>
+                  <td class="fw-bold">{{ c.computed_value|currency }}</td>
+                  <td>
+                    <div class="d-flex flex-column gap-1">
+                      <span class="badge rounded-pill 
+                        {% if c.company_status == 'pago' %}bg-success
+                        {% elif c.company_status == 'em caixa' %}" style="background-color: #43c273;"
+                        {% elif c.company_status == 'medição aprovada' %}bg-primary
+                        {% elif c.company_status == 'em execução' %}bg-info
+                        {% elif c.company_status == 'previsto' %}bg-secondary
+                        {% else %}bg-light{% endif %}">
+                        Empresa: {{ c.company_status|capitalize }}
+                      </span>
+                      <span class="badge rounded-pill 
+                        {% if c.employee_status == 'pago' %}bg-success
+                        {% elif c.employee_status == 'aguardando pagamento' %}bg-warning
+                        {% elif c.employee_status == 'previsto' %}bg-secondary
+                        {% else %}bg-light{% endif %}">
+                        Funcionário: {{ c.employee_status|capitalize }}
+                      </span>
+                    </div>
+                  </td>
+                  <td>
+                    <div class="d-flex justify-content-center gap-1">
+                      <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#editCommission{{ c.id }}" aria-label="Editar Comissão">
+                        <i class="bi bi-pencil me-1"></i> Editar
+                      </button>
+                      <form action="{{ url_for('commission_delete', commission_id=c.id) }}" method="POST" class="d-inline">
+                        <button type="submit" class="btn btn-sm btn-outline-danger" aria-label="Excluir Comissão" onclick="return confirm('Tem certeza que deseja excluir esta comissão?');">
+                          <i class="bi bi-trash me-1"></i> Excluir
+                        </button>
+                      </form>
+                    </div>
+                    
+                    <!-- Modal de Edição de Comissão -->
+                    <div class="modal fade" id="editCommission{{ c.id }}" tabindex="-1" aria-labelledby="editCommissionLabel{{ c.id }}" aria-hidden="true">
+                      <div class="modal-dialog">
+                        <div class="modal-content">
+                          <form action="{{ url_for('commission_edit', commission_id=c.id) }}" method="POST">
+                            <!-- Campos ocultos para preservar filtros e página -->
+                            <input type="hidden" name="page_comm" value="{{ comm_pagination.page }}">
+                            <input type="hidden" name="filter_mode" value="{{ filter_mode }}">
+                            <input type="hidden" name="filter_month_year" value="{{ filter_month_year }}">
+                            <input type="hidden" name="filter_year" value="{{ filter_year }}">
+                            
+                            <div class="modal-header">
+                              <h5 class="modal-title" id="editCommissionLabel{{ c.id }}">Editar Comissão #{{ c.id }}</h5>
+                              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                            </div>
+                            <div class="modal-body">
+                              <div class="mb-3">
+                                <label class="form-label">Nome</label>
+                                <input type="text" name="name" value="{{ c.name }}" class="form-control" required>
+                              </div>
+                              <div class="mb-3">
+                                <label class="form-label">Mês/Ano</label>
+                                <input type="month" name="month_year" value="{{ '%04d-%02d' % (c.year, c.month) }}" class="form-control">
+                              </div>
+                              <div class="mb-3">
+                                <label class="form-label">Valor Original</label>
+                                <div class="input-group">
+                                  <span class="input-group-text">R$</span>
+                                  <input type="text" name="original_value" value="{{ c.original_value }}" class="form-control">
+                                </div>
+                              </div>
+                              <div class="mb-3">
+                                <label class="form-label">Fator</label>
+                                <input type="text" name="factor" value="{{ c.factor if c.factor else '' }}" class="form-control">
+                              </div>
+                              <div class="row g-3">
+                                <div class="col-md-6">
+                                  <label class="form-label">Status da Empresa</label>
+                                  <select name="company_status" class="form-select">
+                                    <option value="previsto" {% if c.company_status=='previsto' %}selected{% endif %}>Previsto</option>
+                                    <option value="em execução" {% if c.company_status=='em execução' %}selected{% endif %}>Em Execução</option>
+                                    <option value="medição aprovada" {% if c.company_status=='medição aprovada' %}selected{% endif %}>Medição Aprovada</option>
+                                    <option value="em caixa" {% if c.company_status=='em caixa' %}selected{% endif %}>Em Caixa</option>
+                                    <option value="pago" {% if c.company_status=='pago' %}selected{% endif %}>Pago</option>
+                                  </select>
+                                </div>
+                                <div class="col-md-6">
+                                  <label class="form-label">Status do Funcionário</label>
+                                  <select name="employee_status" class="form-select">
+                                    <option value="previsto" {% if c.employee_status=='previsto' %}selected{% endif %}>Previsto</option>
+                                    <option value="aguardando pagamento" {% if c.employee_status=='aguardando pagamento' %}selected{% endif %}>Aguardando Pagamento</option>
+                                    <option value="pago" {% if c.employee_status=='pago' %}selected{% endif %}>Pago</option>
+                                  </select>
+                                </div>
+                              </div>
+                            </div>
+                            <div class="modal-footer">
+                              <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                              <button type="submit" class="btn btn-primary">Salvar Alterações</button>
+                            </div>
+                          </form>
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          
+          <!-- Paginação para Comissões -->
+          {% if comm_pagination.pages > 1 %}
+          <nav aria-label="Paginação de comissões" class="mt-3">
+            <ul class="pagination justify-content-center">
+              {% if comm_pagination.has_prev %}
+              <li class="page-item">
+                <a class="page-link" href="{{ url_for('dashboard', filter_mode=filter_mode, filter_month_year=filter_month_year, filter_year=filter_year, page_comm=comm_pagination.prev_num, page_exp=exp_pagination.page) }}" aria-label="Anterior">
+                  <span aria-hidden="true">&laquo;</span>
+                </a>
+              </li>
+              {% else %}
+              <li class="page-item disabled"><span class="page-link">&laquo;</span></li>
+              {% endif %}
+              
+              {% for p in comm_pagination.iter_pages() %}
+                {% if p %}
+                  {% if p == comm_pagination.page %}
+                  <li class="page-item active"><span class="page-link">{{ p }}</span></li>
+                  {% else %}
+                  <li class="page-item"><a class="page-link" href="{{ url_for('dashboard', filter_mode=filter_mode, filter_month_year=filter_month_year, filter_year=filter_year, page_comm=p, page_exp=exp_pagination.page) }}">{{ p }}</a></li>
+                  {% endif %}
+                {% else %}
+                  <li class="page-item disabled"><span class="page-link">…</span></li>
+                {% endif %}
+              {% endfor %}
+              
+              {% if comm_pagination.has_next %}
+              <li class="page-item">
+                <a class="page-link" href="{{ url_for('dashboard', filter_mode=filter_mode, filter_month_year=filter_month_year, filter_year=filter_year, page_comm=comm_pagination.next_num, page_exp=exp_pagination.page) }}" aria-label="Próximo">
+                  <span aria-hidden="true">&raquo;</span>
+                </a>
+              </li>
+              {% else %}
+              <li class="page-item disabled"><span class="page-link">&raquo;</span></li>
+              {% endif %}
+            </ul>
+          </nav>
+          {% endif %}
+        </div>
+        
+        <!-- Aba de Despesas -->
+        <div class="tab-pane fade" id="expenses" role="tabpanel" aria-labelledby="expenses-tab">
+          <!-- Formulário para nova Despesa -->
+          <div class="accordion mb-4" id="newExpenseAccordion">
+            <div class="accordion-item">
+              <h2 class="accordion-header" id="headingNewExpense">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseNewExpense" aria-expanded="false" aria-controls="collapseNewExpense">
+                  <i class="bi bi-plus-circle me-2"></i> Nova Despesa
+                </button>
+              </h2>
+              <div id="collapseNewExpense" class="accordion-collapse collapse" aria-labelledby="headingNewExpense" data-bs-parent="#newExpenseAccordion">
+                <div class="accordion-body">
+                  <form action="{{ url_for('expense_new') }}" method="POST">
+                    <div class="row g-3">
+                      <div class="col-md-4">
+                        <label class="form-label">Nome</label>
+                        <input type="text" name="name" class="form-control" required>
+                      </div>
+                      <div class="col-md-3">
+                        <label class="form-label">Mês/Ano</label>
+                        <input type="month" name="month_year" class="form-control" required>
+                      </div>
+                      <div class="col-md-2">
+                        <label class="form-label">Valor</label>
+                        <div class="input-group">
+                          <span class="input-group-text">R$</span>
+                          <input type="text" name="value" class="form-control" placeholder="0,00" required>
+                        </div>
+                      </div>
+                      <div class="col-md-2">
+                        <label class="form-label">Parcela (opcional)</label>
+                        <input type="text" name="installment_info" class="form-control" placeholder="Ex: 6/12">
+                      </div>
+                      <div class="col-md-1">
+                        <label class="form-label">Recorrente</label>
+                        <div class="form-check form-switch mt-2">
+                          <input class="form-check-input" type="checkbox" name="is_recurring" role="switch">
+                        </div>
+                      </div>
+                    </div>
+                    <div class="mt-3 text-end">
+                      <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-plus-lg me-1"></i> Adicionar Despesa
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Tabela de Despesas -->
+          <div class="table-responsive">
+            <table class="table table-hover align-middle">
+              <thead class="table-light">
+                <tr>
+                  <th scope="col" class="text-center">#</th>
+                  <th scope="col">Nome</th>
+                  <th scope="col">Mês/Ano</th>
+                  <th scope="col">Valor</th>
+                  <th scope="col">Parcela</th>
+                  <th scope="col">Recorrente</th>
+                  <th scope="col" class="text-center">Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for e in expenses %}
+                <tr>
+                  <td class="text-center text-muted">{{ e.id }}</td>
+                  <td>{{ e.name }}</td>
+                  <td>{{ e.month }}/{{ e.year }}</td>
+                  <td class="fw-bold">{{ e.value|currency }}</td>
+                  <td>{% if e.installment_info %}{{ e.installment_info }}{% else %}—{% endif %}</td>
+                  <td class="text-center">
+                    {% if e.is_recurring %}
+                    <span class="badge bg-info rounded-pill">Sim</span>
+                    {% else %}
+                    <span class="text-muted">—</span>
+                    {% endif %}
+                  </td>
+                  <td>
+                    <div class="d-flex justify-content-center gap-1">
+                      <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#editExpense{{ e.id }}" aria-label="Editar Despesa">
+                        <i class="bi bi-pencil me-1"></i> Editar
+                      </button>
+                      <form action="{{ url_for('expense_delete', expense_id=e.id) }}" method="POST" class="d-inline">
+                        <button type="submit" class="btn btn-sm btn-outline-danger" aria-label="Excluir Despesa" onclick="return confirm('Tem certeza que deseja excluir esta despesa?');">
+                          <i class="bi bi-trash me-1"></i> Excluir
+                        </button>
+                      </form>
+                    </div>
+                    
+                    <!-- Modal de Edição de Despesa -->
+                    <div class="modal fade" id="editExpense{{ e.id }}" tabindex="-1" aria-labelledby="editExpenseLabel{{ e.id }}" aria-hidden="true">
+                      <div class="modal-dialog">
+                        <div class="modal-content">
+                          <form action="{{ url_for('expense_edit', expense_id=e.id) }}" method="POST">
+                            <div class="modal-header">
+                              <h5 class="modal-title" id="editExpenseLabel{{ e.id }}">Editar Despesa #{{ e.id }}</h5>
+                              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                            </div>
+                            <div class="modal-body">
+                              <div class="mb-3">
+                                <label class="form-label">Nome</label>
+                                <input type="text" name="name" value="{{ e.name }}" class="form-control" required>
+                              </div>
+                              <div class="mb-3">
+                                <label class="form-label">Mês/Ano</label>
+                                <input type="month" name="month_year" value="{{ '%04d-%02d' % (e.year, e.month) }}" class="form-control">
+                              </div>
+                              <div class="mb-3">
+                                <label class="form-label">Valor</label>
+                                <div class="input-group">
+                                  <span class="input-group-text">R$</span>
+                                  <input type="text" name="value" value="{{ e.value }}" class="form-control">
+                                </div>
+                              </div>
+                              <div class="mb-3">
+                                <label class="form-label">Parcela (opcional)</label>
+                                <input type="text" name="installment_info" value="{{ e.installment_info or '' }}" class="form-control" placeholder="Ex: 6/12">
+                              </div>
+                              <div class="mb-3">
+                                <div class="form-check form-switch">
+                                  <input class="form-check-input" type="checkbox" name="is_recurring" role="switch" {% if e.is_recurring %}checked{% endif %}>
+                                  <label class="form-check-label">Despesa recorrente</label>
+                                </div>
+                              </div>
+                            </div>
+                            <div class="modal-footer">
+                              <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                              <button type="submit" class="btn btn-primary">Salvar Alterações</button>
+                            </div>
+                          </form>
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          
+          <!-- Paginação para Despesas -->
+          {% if exp_pagination.pages > 1 %}
+          <nav aria-label="Paginação de despesas" class="mt-3">
+            <ul class="pagination justify-content-center">
+              {% if exp_pagination.has_prev %}
+              <li class="page-item">
+                <a class="page-link" href="{{ url_for('dashboard', filter_mode=filter_mode, filter_month_year=filter_month_year, filter_year=filter_year, page_comm=comm_pagination.page, page_exp=exp_pagination.prev_num) }}" aria-label="Anterior">
+                  <span aria-hidden="true">&laquo;</span>
+                </a>
+              </li>
+              {% else %}
+              <li class="page-item disabled"><span class="page-link">&laquo;</span></li>
+              {% endif %}
+              
+              {% for p in exp_pagination.iter_pages() %}
+                {% if p %}
+                  {% if p == exp_pagination.page %}
+                  <li class="page-item active"><span class="page-link">{{ p }}</span></li>
+                  {% else %}
+                  <li class="page-item"><a class="page-link" href="{{ url_for('dashboard', filter_mode=filter_mode, filter_month_year=filter_month_year, filter_year=filter_year, page_comm=comm_pagination.page, page_exp=p) }}">{{ p }}</a></li>
+                  {% endif %}
+                {% else %}
+                  <li class="page-item disabled"><span class="page-link">…</span></li>
+                {% endif %}
+              {% endfor %}
+              
+              {% if exp_pagination.has_next %}
+              <li class="page-item">
+                <a class="page-link" href="{{ url_for('dashboard', filter_mode=filter_mode, filter_month_year=filter_month_year, filter_year=filter_year, page_comm=comm_pagination.page, page_exp=exp_pagination.next_num) }}" aria-label="Próximo">
+                  <span aria-hidden="true">&raquo;</span>
+                </a>
+              </li>
+              {% else %}
+              <li class="page-item disabled"><span class="page-link">&raquo;</span></li>
+              {% endif %}
+            </ul>
+          </nav>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Botão para abrir o modal de Legenda -->
+  <div class="mt-4 text-end">
+    <button type="button" class="btn btn-sm btn-link text-muted" data-bs-toggle="modal" data-bs-target="#legendModal">
+      Ver Legenda de Status
+    </button>
+  </div>
+
+  <!-- Modal de Legenda -->
+  <div class="modal fade" id="legendModal" tabindex="-1" aria-labelledby="legendModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="legendModalLabel">Legenda de Status</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+        </div>
+        <div class="modal-body">
+          <small class="text-muted">
+            <u>Empresa:</u><br>
+            - <strong>Previsto:</strong> Serviço agendado, mas ainda não iniciada.<br>
+            - <strong>Em Execução:</strong> Serviço em execução atualmente.<br>
+            - <strong>Medição Aprovada:</strong> Medição verificada e aprovada pela área responsável.<br>
+            - <strong>Em Caixa:</strong> Valor já recebido e disponível em caixa.<br>
+            - <strong>Pago:</strong> Comissão totalmente quitada.<br>
+            <u>Funcionário:</u><br>
+            - <strong>Previsto:</strong> Comissão agendada para o colaborador, ainda não disponível para pagamento.<br>
+            - <strong>Aguardando Pagamento:</strong> Comissão pronta para repasse, aguardando pagamento.<br>
+            - <strong>Pago:</strong> Comissão já creditada ao colaborador.
+          </small>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Fechar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Modal de Custos Fixos -->
   <div class="modal fade" id="fixedCostsModal" tabindex="-1" aria-labelledby="fixedCostsModalLabel" aria-hidden="true">
     <div class="modal-dialog">
       <form method="POST" action="{{ url_for('update_fixed_costs') }}">
         <div class="modal-content">
           <div class="modal-header">
-            <h5 class="modal-title" id="fixedCostsModalLabel">Atualizar Custos Fixos</h5>
+            <h5 class="modal-title" id="fixedCostsModalLabel">Configurar Custos Fixos</h5>
             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
           </div>
           <div class="modal-body">
             {% set fixed = FixedCost.query.get(1) %}
             <div class="mb-3">
-              <label class="form-label">Conta Celular VIVO:</label>
-              <input type="text" name="vivo" class="form-control" value="{{ fixed.vivo|currency if fixed else 'R$ 0,00' }}">
+              <label class="form-label">Conta Celular VIVO</label>
+              <div class="input-group">
+                <span class="input-group-text">R$</span>
+                <input type="text" name="vivo" class="form-control" value="{{ fixed.vivo|currency if fixed else 'R$ 0,00' }}">
+              </div>
             </div>
             <div class="mb-3">
-              <label class="form-label">V.A. (Vale Alimentação):</label>
-              <input type="text" name="va" class="form-control" value="{{ fixed.va|currency if fixed else 'R$ 0,00' }}">
+              <label class="form-label">V.A. (Vale Alimentação)</label>
+              <div class="input-group">
+                <span class="input-group-text">R$</span>
+                <input type="text" name="va" class="form-control" value="{{ fixed.va|currency if fixed else 'R$ 0,00' }}">
+              </div>
             </div>
           </div>
           <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-            <button type="submit" class="btn btn-primary">Salvar</button>
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <button type="submit" class="btn btn-primary">Salvar Alterações</button>
           </div>
         </div>
       </form>
     </div>
   </div>
-  
-  <!-- Filtro: escolha entre "Sem Filtro", "Por Mês/Ano" ou "Por Ano" -->
-  <form method="GET" action="{{ url_for('dashboard') }}" class="row g-3 mb-4">
-    <div class="col-md-3">
-      <label class="form-label">Tipo de Filtro:</label>
-      <select name="filter_mode" id="filter_mode" class="form-select">
-        <option value="">-- Sem Filtro --</option>
-        <option value="month" {% if filter_mode=='month' %}selected{% endif %}>Por Mês/Ano</option>
-        <option value="year" {% if filter_mode=='year' %}selected{% endif %}>Por Ano</option>
-      </select>
-    </div>
-    <!-- Campo para filtro por Mês/Ano -->
-    <div class="col-md-3" id="month_year_div" style="display: {% if filter_mode=='month' %}block{% else %}none{% endif %};">
-      <label class="form-label">Mês/Ano:</label>
-      <input type="month" name="filter_month_year" class="form-control" value="{{ filter_month_year or '' }}">
-    </div>
-    <!-- Campo para filtro por Ano -->
-    <div class="col-md-3" id="year_div" style="display: {% if filter_mode=='year' %}block{% else %}none{% endif %};">
-      <label class="form-label">Ano:</label>
-      <input type="number" name="filter_year" class="form-control" placeholder="AAAA" min="1900" max="2100" value="{{ filter_year or '' }}">
-    </div>
-    <div class="col-md-3 align-self-end">
-      <button type="submit" class="btn btn-primary">Filtrar</button>
-      <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">Limpar</a>
-    </div>
-  </form>
-  
-  <script>
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    // Script para o filtro de modo
     document.getElementById('filter_mode').addEventListener('change', function() {
       var mode = this.value;
       document.getElementById('month_year_div').style.display = (mode === 'month') ? 'block' : 'none';
       document.getElementById('year_div').style.display = (mode === 'year') ? 'block' : 'none';
     });
-  </script>
-  
-  <!-- Botões para Relatórios -->
-  <div class="mb-4">
-    <a href="{{ url_for('monthly_report') }}" class="btn btn-primary me-2">Gerar Relatório Mensal</a>
-    <a href="{{ url_for('monthly_reports_list') }}" class="btn btn-secondary">Listar Relatórios Mensais</a>
-  </div>
-  
-  <!-- Formulário para nova Comissão -->
-  <hr>
-  <h3>Nova Comissão</h3>
-  <form action="{{ url_for('commission_new') }}" method="POST" class="mb-3">
-    <div class="row g-3">
-      <div class="col-md-3">
-        <label class="form-label">Nome:</label>
-        <input type="text" name="name" class="form-control" required>
-      </div>
-      <div class="col-md-3">
-        <label class="form-label">Mês/Ano:</label>
-        <!-- Usando input type="month" nativo -->
-        <input type="month" name="month_year" class="form-control" required>
-      </div>
-      <div class="col-md-2">
-        <label class="form-label">Valor:</label>
-        <input type="text" name="original_value" class="form-control" placeholder="Ex: 1000,50" required>
-      </div>
-      <div class="col-md-2">
-        <label class="form-label">Fator:</label>
-        <input type="text" name="factor" class="form-control" placeholder="Ex: 0,10">
-      </div>
-      <div class="col-md-2">
-        <label class="form-label">Status:</label>
-        <select name="status" class="form-select" required>
-          <option value="paga">Paga</option>
-          <option value="aguardando">Aguardando</option>
-          <option value="em execução">Em Execução</option>
-        </select>
-      </div>
-    </div>
-    <div class="mt-2">
-      <button type="submit" class="btn btn-success">Adicionar Comissão</button>
-    </div>
-  </form>
-  
-  <!-- Tabela de Comissões -->
-  <div class="table-responsive mb-3">
-    <table class="table table-bordered table-striped">
-      <thead>
-        <tr>
-          <th>ID</th>
-          <th>Nome</th>
-          <th>Mês/Ano</th>
-          <th>Valor Original</th>
-          <th>Fator</th>
-          <th>Valor Computado</th>
-          <th>Status</th>
-          <th>Ações</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for c in commissions %}
-        <tr>
-          <td>{{ c.id }}</td>
-          <td>{{ c.name }}</td>
-          <td>{{ c.month }}/{{ c.year }}</td>
-          <td>{{ c.original_value|currency }}</td>
-          <td>{{ c.factor }}</td>
-          <td>{{ c.computed_value|currency }}</td>
-          <td>{{ c.status }}</td>
-          <td>
-            <form action="{{ url_for('commission_edit', commission_id=c.id) }}" method="POST" class="d-inline">
-              <input type="text" name="name" value="{{ c.name }}" class="form-control d-inline" style="width:100px;">
-              <input type="month" name="month_year" value="{{ '%04d-%02d' % (c.year, c.month) }}" class="form-control d-inline" style="width:120px;">
-              <input type="text" name="original_value" value="{{ c.original_value }}" class="form-control d-inline" style="width:80px;">
-              <input type="text" name="factor" value="{{ c.factor if c.factor else '' }}" class="form-control d-inline" style="width:60px;">
-              <select name="status" class="form-select d-inline" style="width:130px;">
-                <option value="paga" {% if c.status=='paga' %}selected{% endif %}>Paga</option>
-                <option value="aguardando" {% if c.status=='aguardando' %}selected{% endif %}>Aguardando</option>
-                <option value="em execução" {% if c.status=='em execução' %}selected{% endif %}>Em Execução</option>
-              </select>
-              <button type="submit" class="btn btn-primary btn-sm">Salvar</button>
-            </form>
-            |
-            <form action="{{ url_for('commission_delete', commission_id=c.id) }}" method="POST" class="d-inline">
-              <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Deletar comissão?');">Del</button>
-            </form>
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-  <!-- Paginação para Comissões -->
-  {% if comm_pagination.pages > 1 %}
-  <nav>
-    <ul class="pagination">
-      {% if comm_pagination.has_prev %}
-      <li class="page-item">
-        <a class="page-link" href="{{ url_for('dashboard', filter_mode=filter_mode, filter_month_year=filter_month_year, filter_year=filter_year, page_comm=comm_pagination.prev_num, page_exp=exp_pagination.page) }}">Anterior</a>
-      </li>
-      {% else %}
-      <li class="page-item disabled"><span class="page-link">Anterior</span></li>
-      {% endif %}
-      
-      {% for p in comm_pagination.iter_pages() %}
-        {% if p %}
-          {% if p == comm_pagination.page %}
-          <li class="page-item active"><span class="page-link">{{ p }}</span></li>
-          {% else %}
-          <li class="page-item"><a class="page-link" href="{{ url_for('dashboard', filter_mode=filter_mode, filter_month_year=filter_month_year, filter_year=filter_year, page_comm=p, page_exp=exp_pagination.page) }}">{{ p }}</a></li>
-          {% endif %}
-        {% else %}
-          <li class="page-item disabled"><span class="page-link">…</span></li>
-        {% endif %}
-      {% endfor %}
-      
-      {% if comm_pagination.has_next %}
-      <li class="page-item">
-        <a class="page-link" href="{{ url_for('dashboard', filter_mode=filter_mode, filter_month_year=filter_month_year, filter_year=filter_year, page_comm=comm_pagination.next_num, page_exp=exp_pagination.page) }}">Próximo</a>
-      </li>
-      {% else %}
-      <li class="page-item disabled"><span class="page-link">Próximo</span></li>
-      {% endif %}
-    </ul>
-  </nav>
-  {% endif %}
-  
-  <!-- Formulário para nova Despesa -->
-  <hr>
-  <h3>Nova Despesa</h3>
-  <form action="{{ url_for('expense_new') }}" method="POST" class="mb-3">
-    <div class="row g-3">
-      <div class="col-md-3">
-        <label class="form-label">Nome:</label>
-        <input type="text" name="name" class="form-control" required>
-      </div>
-      <div class="col-md-3">
-        <label class="form-label">Mês/Ano:</label>
-        <input type="month" name="month_year" class="form-control" required>
-      </div>
-      <div class="col-md-2">
-        <label class="form-label">Valor:</label>
-        <input type="text" name="value" class="form-control" placeholder="Ex: 250,00" required>
-      </div>
-      <div class="col-md-2">
-        <label class="form-label">Recorrente?</label>
-        <div class="form-check">
-          <input class="form-check-input" type="checkbox" name="is_recurring">
-        </div>
-      </div>
-      <div class="col-md-2">
-        <label class="form-label">Parcela (opcional):</label>
-        <input type="text" name="installment_info" class="form-control" placeholder="Ex: 6/12">
-      </div>
-    </div>
-    <div class="mt-2">
-      <button type="submit" class="btn btn-success">Adicionar Despesa</button>
-    </div>
-  </form>
-  
-  <!-- Tabela de Despesas -->
-  <div class="table-responsive mb-3">
-    <table class="table table-bordered table-striped">
-      <thead>
-        <tr>
-          <th>ID</th>
-          <th>Nome</th>
-          <th>Mês/Ano</th>
-          <th>Valor</th>
-          <th>Parcela</th>
-          <th>Ações</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for e in expenses %}
-        <tr>
-          <td>{{ e.id }}</td>
-          <td>{{ e.name }}</td>
-          <td>{{ e.month }}/{{ e.year }}</td>
-          <td>{{ e.value|currency }}</td>
-          <td>{% if e.installment_info %}{{ e.installment_info }}{% else %}--{% endif %}</td>
-          <td>
-            <form action="{{ url_for('expense_edit', expense_id=e.id) }}" method="POST" class="d-inline">
-              <input type="text" name="name" value="{{ e.name }}" class="form-control d-inline" style="width:90px;" required>
-              <input type="month" name="month_year" value="{{ '%04d-%02d' % (e.year, e.month) }}" class="form-control d-inline" style="width:120px;">
-              <input type="text" name="value" value="{{ e.value }}" class="form-control d-inline" style="width:70px;">
-              <label class="form-check-label d-inline">
-                <input type="checkbox" name="is_recurring" class="form-check-input" {% if e.is_recurring %}checked{% endif %}> Rec?
-              </label>
-              <input type="text" name="installment_info" placeholder="Parcela" value="{{ e.installment_info or '' }}" class="form-control d-inline" style="width:50px;">
-              <button type="submit" class="btn btn-primary btn-sm">Salvar</button>
-            </form>
-            |
-            <form action="{{ url_for('expense_delete', expense_id=e.id) }}" method="POST" class="d-inline">
-              <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Deletar despesa?');">Del</button>
-            </form>
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-  <!-- Paginação para Despesas -->
-  {% if exp_pagination.pages > 1 %}
-  <nav>
-    <ul class="pagination">
-      {% if exp_pagination.has_prev %}
-      <li class="page-item">
-        <a class="page-link" href="{{ url_for('dashboard', filter_mode=filter_mode, filter_month_year=filter_month_year, filter_year=filter_year, page_comm=comm_pagination.page, page_exp=exp_pagination.prev_num) }}">Anterior</a>
-      </li>
-      {% else %}
-      <li class="page-item disabled"><span class="page-link">Anterior</span></li>
-      {% endif %}
-      
-      {% for p in exp_pagination.iter_pages() %}
-        {% if p %}
-          {% if p == exp_pagination.page %}
-          <li class="page-item active"><span class="page-link">{{ p }}</span></li>
-          {% else %}
-          <li class="page-item"><a class="page-link" href="{{ url_for('dashboard', filter_mode=filter_mode, filter_month_year=filter_month_year, filter_year=filter_year, page_comm=comm_pagination.page, page_exp=p) }}">{{ p }}</a></li>
-          {% endif %}
-        {% else %}
-          <li class="page-item disabled"><span class="page-link">…</span></li>
-        {% endif %}
-      {% endfor %}
-      
-      {% if exp_pagination.has_next %}
-      <li class="page-item">
-        <a class="page-link" href="{{ url_for('dashboard', filter_mode=filter_mode, filter_month_year=filter_month_year, filter_year=filter_year, page_comm=comm_pagination.page, page_exp=exp_pagination.next_num) }}">Próximo</a>
-      </li>
-      {% else %}
-      <li class="page-item disabled"><span class="page-link">Próximo</span></li>
-      {% endif %}
-    </ul>
-  </nav>
-  {% endif %}
-</div>
+    
+    // Ativa a tab salva no local storage ou default para comissões
+    const activeTab = localStorage.getItem('activeFinanceTab') || 'commissions-tab';
+    const tabElement = document.getElementById(activeTab);
+    if (tabElement) {
+      const tab = new bootstrap.Tab(tabElement);
+      tab.show();
+    }
+    
+    // Salva a tab atual no local storage quando mudar
+    const tabs = document.querySelectorAll('button[data-bs-toggle="tab"]');
+    tabs.forEach(tab => {
+      tab.addEventListener('shown.bs.tab', function(event) {
+        localStorage.setItem('activeFinanceTab', event.target.id);
+      });
+    });
+  });
+</script>
 {% endblock %}

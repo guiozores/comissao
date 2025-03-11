@@ -12,8 +12,11 @@ class Commission(db.Model):
     name = db.Column(db.String(200), nullable=False)
     original_value = db.Column(db.Float, nullable=False)
     factor = db.Column(db.Float, nullable=True)
-    status = db.Column(db.String(50), nullable=False)
-    reported = db.Column(db.Boolean, default=False)
+    # Status da empresa: indica se o pagamento do cliente já foi recebido, se está aprovado, em execução ou apenas prevista.
+    company_status = db.Column(db.String(50), nullable=False)
+    # Status do funcionário: indica se o funcionário já recebeu a comissão, se está aguardando ou em análise.
+    employee_status = db.Column(db.String(50), nullable=False)
+    reported = db.Column(db.Boolean, nullable=False)
     
     @property
     def computed_value(self):

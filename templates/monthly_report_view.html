@@ -1,3 +1,4 @@
+<!-- templates/monthly_report_view.html -->
 {% extends "base.html" %}
 {% block content %}
 <style>
@@ -7,21 +8,27 @@
       margin: 0;
       padding: 0;
       font-size: 9px !important;
+      -webkit-print-color-adjust: exact; /* Preserva as cores no Chrome/Safari */
+      print-color-adjust: exact;         /* Preserva as cores no Firefox */
     }
     .container {
       margin: auto;
       max-width: 95%;
       padding: 2mm;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
     }
     .table {
       font-size: 9px !important;
       margin: 0 auto;
       width: 100%;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
     }
     .table th, .table td {
       padding: 3px !important;
       margin: 0;
-      text-align: left;  /* Alinha conteúdo à esquerda */
+      text-align: left;
     }
     .no-print {
       display: none !important;
@@ -40,19 +47,18 @@
     padding: 10px;
   }
 
-  /* DEFINIÇÃO DAS LARGURAS DAS 7 COLUNAS (COMPARTILHADAS) */
-  /* Ajuste as porcentagens conforme sua preferência */
-  table colgroup col.c1  { width:  5%;  }
-  table colgroup col.c2  { width: 30%;  }
-  table colgroup col.c3  { width: 10%;  }
-  table colgroup col.c4  { width: 10%;  }
-  table colgroup col.c5  { width: 10%;  }
-  table colgroup col.c6  { width: 10%;  }
-  table colgroup col.c7  { width: 25%;  }
+  /* DEFINIÇÃO DAS LARGURAS DAS 7 COLUNAS */
+  table colgroup col.c1  { width:  5%; }
+  table colgroup col.c2  { width: 30%; }
+  table colgroup col.c3  { width: 10%; }
+  table colgroup col.c4  { width: 10%; }
+  table colgroup col.c5  { width: 10%; }
+  table colgroup col.c6  { width: 10%; }
+  table colgroup col.c7  { width: 25%; }
 </style>
 
 <div class="container my-2">
-  <!-- CABEÇALHO ALINHADO À ESQUERDA -->
+  <!-- Cabeçalho -->
   <h2 style="text-align:left;">Relatório Mensal #{{ report.id }}</h2>
   <p style="text-align:left;"><strong>Mês/Ano:</strong> {{ report.report_month }}/{{ report.report_year }}</p>
   <p style="text-align:left;"><strong>Gerado em:</strong> {{ report.generated_date.strftime("%d/%m/%Y, %H:%M:%S") }}</p>
@@ -61,7 +67,6 @@
   <h3 style="text-align:left;" class="mt-4">Comissões Incluídas</h3>
   <div class="table-responsive">
     <table class="table table-bordered table-striped">
-      <!-- colgroup de 7 colunas, com larguras fixas -->
       <colgroup>
         <col class="c1" />
         <col class="c2" />
@@ -91,7 +96,17 @@
           <td>{{ c.original_value|currency }}</td>
           <td>{{ c.factor }}</td>
           <td>{{ c.computed_value|currency }}</td>
-          <td>{{ c.status }}</td>
+          <td>
+            <span class="badge rounded-pill
+              {% if c.company_status == 'pago' %}bg-success
+              {% elif c.company_status == 'em caixa' %}" style="background-color: #43c273;"
+              {% elif c.company_status == 'medição aprovada' %}bg-primary
+              {% elif c.company_status == 'em execução' %}bg-info
+              {% elif c.company_status == 'previsto' %}bg-secondary
+              {% else %}bg-light{% endif %}">
+              {{ c.company_status|capitalize }}
+            </span>
+          </td>
         </tr>
         {% endfor %}
       </tbody>
@@ -119,8 +134,7 @@
           <th>Mês/Ano</th>
           <th>Valor</th>
           <th>Parcela</th>
-          <!-- Como esta tabela só tem 5 colunas ativas, podemos preencher as 2 últimas com "—" -->
-          <th>—</th> 
+          <th>—</th>
           <th>—</th>
         </tr>
       </thead>
@@ -132,14 +146,14 @@
           <td>{{ e.month }}/{{ e.year }}</td>
           <td>{{ e.value|currency }}</td>
           <td>{% if e.installment_info %}{{ e.installment_info }}{% else %}--{% endif %}</td>
-          <td> </td> <!-- Coluna vazia -->
-          <td> </td> <!-- Coluna vazia -->
+          <td></td>
+          <td></td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
-  <p style="text-align:left;"><strong>Total de Despesas:</strong> {{ report.total_expenses|currency }}</p>
+  <p style="text-align:left;"><strong>Total de Despesas:</strong> {{ (report.total_expenses - (fixed_vivo + fixed_va))|currency }}</p>
   
   <!-- TABELA DE CUSTOS FIXOS -->
   <h3 style="text-align:left;" class="mt-4">Custos Fixos</h3>
@@ -160,7 +174,6 @@
           <th>Nome</th>
           <th>Mês/Ano</th>
           <th>Valor</th>
-          <!-- As 3 últimas colunas não serão usadas nessa tabela -->
           <th>—</th>
           <th>—</th>
           <th>—</th>
