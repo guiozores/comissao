@@ -147,19 +147,26 @@ def dashboard():
             commissions_query = commissions_query.filter(Commission.year == y, Commission.month == m)
     elif filter_mode == "year" and filter_year:
         commissions_query = commissions_query.filter(Commission.year == int(filter_year))
+    # Novamente aqui.
+    filter_name = request.args.get("filter_name")
+    if filter_name:
+        commissions_query = commissions_query.filter(Commission.name.ilike(f"%{filter_name}%"))
     commissions_query = commissions_query.order_by(Commission.year.desc(), Commission.month.desc())
     comm_pagination = commissions_query.paginate(page=page_comm, per_page=per_page, error_out=False)
 
-    # Query para Despesas (ordenadas por ano e mês em ordem decrescente)
+    # Query para despesas
     expenses_query = Expense.query
     if filter_mode == "month" and filter_month_year:
         parts = filter_month_year.split("-")
         if len(parts) == 2:
             y = int(parts[0])
             m = int(parts[1])
-            expenses_query = expenses_query.filter(Expense.year == y, Expense.month == m, Expense.is_recurring==False)
+            expenses_query = expenses_query.filter(Expense.year == y, Expense.month == m)
     elif filter_mode == "year" and filter_year:
-        expenses_query = expenses_query.filter(Expense.year == int(filter_year), Expense.is_recurring==False)
+        expenses_query = expenses_query.filter(Expense.year == int(filter_year))
+    filter_expense_name = request.args.get("filter_expense_name")
+    if filter_expense_name:
+        expenses_query = expenses_query.filter(Expense.name.ilike(f"%{filter_expense_name}%"))
     expenses_query = expenses_query.order_by(Expense.year.desc(), Expense.month.desc())
     exp_pagination = expenses_query.paginate(page=page_exp, per_page=per_page, error_out=False)
 
@@ -170,7 +177,8 @@ def dashboard():
                            exp_pagination=exp_pagination,
                            filter_mode=filter_mode,
                            filter_month_year=filter_month_year,
-                           filter_year=filter_year)
+                           filter_year=filter_year,
+                           filter_name=filter_name)
 
 # -------------------------------
 # CRUD de Comissões (Dashboard)
@@ -524,6 +532,9 @@ def commission_balance():
         commissions_query = commissions_query.filter(Commission.company_status == filter_company_status)
     if filter_employee_status and filter_employee_status != "all":
         commissions_query = commissions_query.filter(Commission.employee_status == filter_employee_status)
+    filter_name = request.args.get("filter_name")
+    if filter_name:
+        commissions_query = commissions_query.filter(Commission.name.ilike(f"%{filter_name}%"))
     
     commissions = commissions_query.order_by(Commission.year.desc(), Commission.month.desc()).all()
     total_value = sum(comm.computed_value for comm in commissions)

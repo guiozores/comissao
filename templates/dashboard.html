@@ -156,7 +156,17 @@
               </div>
             </div>
           </div>
-          
+          <form method="GET" action="{{ url_for('dashboard') }}" id="search-form" class="mb-4">
+            <div class="input-group">
+              <input type="text" name="filter_name" class="form-control" placeholder="Pesquisar Comissão" value="{{ filter_name or '' }}">
+              <button type="submit" class="btn btn-outline-secondary">
+                <i class="bi bi-search"></i> Pesquisar
+              </button>
+              <a href="{{ url_for('dashboard', filter_name='') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-x-circle"></i> Limpar
+              </a>
+            </div>
+          </form>
           <!-- Tabela de Comissões -->
           <div class="table-responsive">
             <table class="table table-hover align-middle">
@@ -246,7 +256,7 @@
                               </div>
                               <div class="mb-3">
                                 <label class="form-label">Fator</label>
-                                <input type="text" name="factor" value="{{ c.factor if c.factor else '' }}" class="form-control">
+                                <input type="text" name="factor" value="{{ c.factor }}">
                               </div>
                               <div class="row g-3">
                                 <div class="col-md-6">
@@ -374,8 +384,18 @@
               </div>
             </div>
           </div>
-          
           <!-- Tabela de Despesas -->
+          <form method="GET" action="{{ url_for('dashboard') }}" id="search-form-expenses" class="mb-4">
+            <div class="input-group">
+              <input type="text" name="filter_expense_name" class="form-control" placeholder="Pesquisar Despesa" value="{{ filter_expense_name or '' }}">
+              <button type="submit" class="btn btn-outline-secondary">
+                <i class="bi bi-search"></i> Pesquisar
+              </button>
+              <a href="{{ url_for('dashboard', filter_expense_name='') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-x-circle"></i> Limpar
+              </a>
+            </div>
+          </form>
           <div class="table-responsive">
             <table class="table table-hover align-middle">
               <thead class="table-light">

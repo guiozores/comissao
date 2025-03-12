@@ -64,6 +64,17 @@
                     <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary ms-2">Retornar ao Dashboard</a>
                 </div>
             </form>
+            <form method="GET" action="{{ url_for('commission_balance') }}" id="search-form-commissions" class="mt-4 mb-4"></form>
+              <div class="input-group">
+                <input type="text" name="filter_name" class="form-control" placeholder="Pesquisar Comissão" value="{{ filter_name or '' }}">
+                <button type="submit" class="btn btn-outline-secondary">
+                  <i class="bi bi-search"></i> Pesquisar
+                </button>
+                <a href="{{ url_for('commission_balance', filter_name='') }}" class="btn btn-outline-secondary">
+                  <i class="bi bi-x-circle"></i> Limpar
+                </a>
+              </div>
+            </form>
         </div>
     </div>
 
