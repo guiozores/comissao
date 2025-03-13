@@ -162,10 +162,15 @@
               <button type="submit" class="btn btn-outline-secondary">
                 <i class="bi bi-search"></i> Pesquisar
               </button>
-              <a href="{{ url_for('dashboard', filter_name='') }}" class="btn btn-outline-secondary">
+              <a href="{{ url_for('dashboard', filter_mode=filter_mode, filter_month_year=filter_month_year, filter_year=filter_year, filter_expense_name=filter_expense_name) }}" class="btn btn-outline-secondary">
                 <i class="bi bi-x-circle"></i> Limpar
               </a>
             </div>
+            <!-- Campos ocultos para preservar os outros filtros -->
+            <input type="hidden" name="filter_mode" value="{{ filter_mode }}">
+            <input type="hidden" name="filter_month_year" value="{{ filter_month_year }}">
+            <input type="hidden" name="filter_year" value="{{ filter_year }}">
+            <input type="hidden" name="filter_expense_name" value="{{ filter_expense_name }}">
           </form>
           <!-- Tabela de Comissões -->
           <div class="table-responsive">
@@ -233,6 +238,8 @@
                             <input type="hidden" name="filter_mode" value="{{ filter_mode }}">
                             <input type="hidden" name="filter_month_year" value="{{ filter_month_year }}">
                             <input type="hidden" name="filter_year" value="{{ filter_year }}">
+                            <input type="hidden" name="filter_name" value="{{ filter_name }}">
+                            <input type="hidden" name="filter_expense_name" value="{{ filter_expense_name }}">
                             
                             <div class="modal-header">
                               <h5 class="modal-title" id="editCommissionLabel{{ c.id }}">Editar Comissão #{{ c.id }}</h5>
@@ -300,7 +307,7 @@
             <ul class="pagination justify-content-center">
               {% if comm_pagination.has_prev %}
               <li class="page-item">
-                <a class="page-link" href="{{ url_for('dashboard', filter_mode=filter_mode, filter_month_year=filter_month_year, filter_year=filter_year, page_comm=comm_pagination.prev_num, page_exp=exp_pagination.page) }}" aria-label="Anterior">
+                <a class="page-link" href="{{ url_for('dashboard', filter_mode=filter_mode, filter_month_year=filter_month_year, filter_year=filter_year, filter_name=filter_name, filter_expense_name=filter_expense_name, page_comm=comm_pagination.prev_num, page_exp=exp_pagination.page) }}" aria-label="Anterior">
                   <span aria-hidden="true">&laquo;</span>
                 </a>
               </li>
@@ -313,7 +320,7 @@
                   {% if p == comm_pagination.page %}
                   <li class="page-item active"><span class="page-link">{{ p }}</span></li>
                   {% else %}
-                  <li class="page-item"><a class="page-link" href="{{ url_for('dashboard', filter_mode=filter_mode, filter_month_year=filter_month_year, filter_year=filter_year, page_comm=p, page_exp=exp_pagination.page) }}">{{ p }}</a></li>
+                  <li class="page-item"><a class="page-link" href="{{ url_for('dashboard', filter_mode=filter_mode, filter_month_year=filter_month_year, filter_year=filter_year, filter_name=filter_name, filter_expense_name=filter_expense_name, page_comm=p, page_exp=exp_pagination.page) }}">{{ p }}</a></li>
                   {% endif %}
                 {% else %}
                   <li class="page-item disabled"><span class="page-link">…</span></li>
@@ -322,7 +329,7 @@
               
               {% if comm_pagination.has_next %}
               <li class="page-item">
-                <a class="page-link" href="{{ url_for('dashboard', filter_mode=filter_mode, filter_month_year=filter_month_year, filter_year=filter_year, page_comm=comm_pagination.next_num, page_exp=exp_pagination.page) }}" aria-label="Próximo">
+                <a class="page-link" href="{{ url_for('dashboard', filter_mode=filter_mode, filter_month_year=filter_month_year, filter_year=filter_year, filter_name=filter_name, filter_expense_name=filter_expense_name, page_comm=comm_pagination.next_num, page_exp=exp_pagination.page) }}" aria-label="Próximo">
                   <span aria-hidden="true">&raquo;</span>
                 </a>
               </li>
@@ -391,10 +398,15 @@
               <button type="submit" class="btn btn-outline-secondary">
                 <i class="bi bi-search"></i> Pesquisar
               </button>
-              <a href="{{ url_for('dashboard', filter_expense_name='') }}" class="btn btn-outline-secondary">
+              <a href="{{ url_for('dashboard', filter_mode=filter_mode, filter_month_year=filter_month_year, filter_year=filter_year, filter_name=filter_name) }}" class="btn btn-outline-secondary">
                 <i class="bi bi-x-circle"></i> Limpar
               </a>
             </div>
+            <!-- Campos ocultos para preservar os outros filtros -->
+            <input type="hidden" name="filter_mode" value="{{ filter_mode }}">
+            <input type="hidden" name="filter_month_year" value="{{ filter_month_year }}">
+            <input type="hidden" name="filter_year" value="{{ filter_year }}">
+            <input type="hidden" name="filter_name" value="{{ filter_name }}">
           </form>
           <div class="table-responsive">
             <table class="table table-hover align-middle">
@@ -441,6 +453,14 @@
                       <div class="modal-dialog">
                         <div class="modal-content">
                           <form action="{{ url_for('expense_edit', expense_id=e.id) }}" method="POST">
+                            <!-- Campos ocultos para preservar filtros e página -->
+                            <input type="hidden" name="page_exp" value="{{ exp_pagination.page }}">
+                            <input type="hidden" name="filter_mode" value="{{ filter_mode }}">
+                            <input type="hidden" name="filter_month_year" value="{{ filter_month_year }}">
+                            <input type="hidden" name="filter_year" value="{{ filter_year }}">
+                            <input type="hidden" name="filter_name" value="{{ filter_name }}">
+                            <input type="hidden" name="filter_expense_name" value="{{ filter_expense_name }}">
+                            
                             <div class="modal-header">
                               <h5 class="modal-title" id="editExpenseLabel{{ e.id }}">Editar Despesa #{{ e.id }}</h5>
                               <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
@@ -493,7 +513,7 @@
             <ul class="pagination justify-content-center">
               {% if exp_pagination.has_prev %}
               <li class="page-item">
-                <a class="page-link" href="{{ url_for('dashboard', filter_mode=filter_mode, filter_month_year=filter_month_year, filter_year=filter_year, page_comm=comm_pagination.page, page_exp=exp_pagination.prev_num) }}" aria-label="Anterior">
+                <a class="page-link" href="{{ url_for('dashboard', filter_mode=filter_mode, filter_month_year=filter_month_year, filter_year=filter_year, filter_name=filter_name, filter_expense_name=filter_expense_name, page_comm=comm_pagination.page, page_exp=exp_pagination.prev_num) }}" aria-label="Anterior">
                   <span aria-hidden="true">&laquo;</span>
                 </a>
               </li>
@@ -506,7 +526,7 @@
                   {% if p == exp_pagination.page %}
                   <li class="page-item active"><span class="page-link">{{ p }}</span></li>
                   {% else %}
-                  <li class="page-item"><a class="page-link" href="{{ url_for('dashboard', filter_mode=filter_mode, filter_month_year=filter_month_year, filter_year=filter_year, page_comm=comm_pagination.page, page_exp=p) }}">{{ p }}</a></li>
+                  <li class="page-item"><a class="page-link" href="{{ url_for('dashboard', filter_mode=filter_mode, filter_month_year=filter_month_year, filter_year=filter_year, filter_name=filter_name, filter_expense_name=filter_expense_name, page_comm=comm_pagination.page, page_exp=p) }}">{{ p }}</a></li>
                   {% endif %}
                 {% else %}
                   <li class="page-item disabled"><span class="page-link">…</span></li>
@@ -515,7 +535,7 @@
               
               {% if exp_pagination.has_next %}
               <li class="page-item">
-                <a class="page-link" href="{{ url_for('dashboard', filter_mode=filter_mode, filter_month_year=filter_month_year, filter_year=filter_year, page_comm=comm_pagination.page, page_exp=exp_pagination.next_num) }}" aria-label="Próximo">
+                <a class="page-link" href="{{ url_for('dashboard', filter_mode=filter_mode, filter_month_year=filter_month_year, filter_year=filter_year, filter_name=filter_name, filter_expense_name=filter_expense_name, page_comm=comm_pagination.page, page_exp=exp_pagination.next_num) }}" aria-label="Próximo">
                   <span aria-hidden="true">&raquo;</span>
                 </a>
               </li>

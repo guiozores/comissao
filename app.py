@@ -178,7 +178,8 @@ def dashboard():
                            filter_mode=filter_mode,
                            filter_month_year=filter_month_year,
                            filter_year=filter_year,
-                           filter_name=filter_name)
+                           filter_name=filter_name,
+                           filter_expense_name=filter_expense_name)
 
 # -------------------------------
 # CRUD de Comissões (Dashboard)
@@ -569,7 +570,8 @@ def commission_balance():
                            filter_year=filter_year,
                            filter_month=filter_month,
                            filter_company_status=filter_company_status,
-                           filter_employee_status=filter_employee_status)
+                           filter_employee_status=filter_employee_status,
+                           filter_name=filter_name)
 
 if __name__ == "__main__":
     app.run(debug=True)

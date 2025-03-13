@@ -58,23 +58,36 @@
                         </div>
                     </div>
                 </div>
+                <!-- Preserva o filtro de nome quando usando outros filtros -->
+                {% if filter_name %}
+                <input type="hidden" name="filter_name" value="{{ filter_name }}">
+                {% endif %}
                 <div class="mt-3">
                     <button type="submit" class="btn btn-primary">Filtrar</button>
                     <a href="{{ url_for('commission_balance') }}" class="btn btn-secondary ms-2">Limpar Filtros</a>
                     <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary ms-2">Retornar ao Dashboard</a>
                 </div>
             </form>
-            <form method="GET" action="{{ url_for('commission_balance') }}" id="search-form-commissions" class="mt-4 mb-4"></form>
-              <div class="input-group">
-                <input type="text" name="filter_name" class="form-control" placeholder="Pesquisar Comissão" value="{{ filter_name or '' }}">
-                <button type="submit" class="btn btn-outline-secondary">
-                  <i class="bi bi-search"></i> Pesquisar
-                </button>
-                <a href="{{ url_for('commission_balance', filter_name='') }}" class="btn btn-outline-secondary">
-                  <i class="bi bi-x-circle"></i> Limpar
-                </a>
-              </div>
-            </form>
+            
+            <!-- Barra de pesquisa com espaçamento adequado -->
+            <div class="mt-4 pt-2 border-top">
+                <form method="GET" action="{{ url_for('commission_balance') }}" id="search-form-commissions">
+                  <div class="input-group">
+                    <input type="text" name="filter_name" class="form-control" placeholder="Pesquisar Comissão" value="{{ filter_name or '' }}">
+                    <button type="submit" class="btn btn-outline-secondary">
+                      <i class="bi bi-search"></i> Pesquisar
+                    </button>
+                    <a href="{{ url_for('commission_balance') }}" class="btn btn-outline-secondary">
+                      <i class="bi bi-x-circle"></i> Limpar
+                    </a>
+                  </div>
+                  <!-- Campos ocultos para preservar os outros filtros -->
+                  <input type="hidden" name="filter_year" value="{{ filter_year or 'all' }}">
+                  <input type="hidden" name="filter_month" value="{{ filter_month or 'all' }}">
+                  <input type="hidden" name="filter_company_status" value="{{ filter_company_status or 'all' }}">
+                  <input type="hidden" name="filter_employee_status" value="{{ filter_employee_status or 'all' }}">
+                </form>
+            </div>
         </div>
     </div>
 
